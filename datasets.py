@@ -2,11 +2,13 @@ import os
 import librosa
 import librosa.display
 import torch
+import torchvision.transforms as transforms
 import numpy as np
 import noisereduce as nr
 from torch.utils.data import random_split
 import matplotlib.pyplot as plt
 from consants import *
+import json
 
 
 def get_paths_to_wavs(path_to_dataset):
@@ -64,10 +66,6 @@ class RemoveSilence:
         return nonsilent_y, sr
 
 
-class RandomPitchShift:
-    def __call__(self, wav):
-        raise NotImplementedError
-
 
 class IemocapDataset(torch.utils.data.Dataset):
     emotions_dict = {
@@ -79,26 +77,104 @@ class IemocapDataset(torch.utils.data.Dataset):
         'ang': 5,
     }
 
-    def __init__(self, path, name, label_type='original',
-                 spectrogram_type='mel', spectrogram_shape=128, transform=None):
+    def __init__(self, path, base_name, label_type='original',
+                 spectrogram_type='melspec', spectrogram_shape=128, 
+                 preprocessing='false', tasks=['emotion']):
         super(IemocapDataset, self).__init__()
-        self.name = name
-        self.path = path
+        self.name = '{}_{}_prep-{}_{}_{}'.format(
+            base_name, label_type, preprocessing, spectrogram_type, spectrogram_shape)
+        path_to_json = '{}\\{}.json'.format(path, self.name)
+        try:
+            dictionary = self.read_json(path_to_json)
+        except FileNotFoundError:
+            dictionary = self.create_json_file(path_to_json)
+        self.files = dictionary['files']
         self.label_type = label_type
-        self.paths_to_wavs_list, _ = self.my_get_paths_to_wavs(self.path)
-        self.transform = transform
+        self.paths_to_wavs_list, self.path_to_noise = self.my_get_paths_to_wavs(path)
+        self.preprocessing = preprocessing
         self.spectrogram_shape = spectrogram_shape
         self.spectrogram_type = spectrogram_type
+        self.tasks = tasks
+       
+
+    def read_json(self, path_to_json):
+        with open(path_to_json, 'r') as json_file:
+            dictionary = json.load(json_file)
+        return dictionary
+
+    def create_json_file(self, path_to_json):
+        noise, sr = self.read_audio(self.path_to_noise)
+        dictionary = {
+            'name': self.name, 
+            'noise': noise,
+            'sr': sr,
+            'files': self.create_files_dicts_list()
+            }
+        with open(path_to_json, 'w') as json_file:
+            json.dump(dictionary, json_file)
+        return dictionary
+
+    def create_files_dicts_list(self):
+        files_dicts_list = []
+        for file_path in self.paths_to_wavs_list:
+            files_dicts_list.append(self.create_one_file_dict(file_path))
+        return files_dicts_list
+
+    def create_one_file_dict(self, file_path):
+        y, sr = self.read_audio(file_path)
+        if self.preprocessing == 'true':
+            raise NotImplementedError('Preprocessing is not currently implemented!')
+            # y, sr = self.preprocess(y, sr)
+        shape = self.spectrogram_shape
+        spectrogram = self.make_spectrogram((y, sr), shape)
+        file_name = os.path.split(file_path)[1]
+        egemaps = self.get_egemaps(file_path)
+        emotion_label = self.get_emotion_label(file_path)
+        gender_label = self.get_gender_label(file_path)
+        speaker_label = self.get_speaker_label(file_path)
+        files_dict = { 
+            'name': file_name,
+            'path': path,
+            'y': y.tolist(),
+            'spectrogram': spectrogram.tolist(),
+            'egemaps': egemaps,
+            'emotion': emotion_label,
+            'gender': gender_label,
+            'speaker': speaker_label
+            }
+        return files_dict
+
+    def get_egemaps(self, file_path):
+        """
+        eGeMAPS feature set for this file
+        Currently not implemented, todo!
+        """
+        return None
+
+    def preprocess(self, y, sr):
+        wav = y, sr
+        noise_sample = self.read_audio(self.path_to_noise[0])
+        preprocess = transforms.Compose([
+                                        Denoiser(noise_sample, 25), 
+                                        RemoveSilence(25)
+                                        ])
+        y, sr = preprocess(wav)
+        return y, sr
 
     def my_get_paths_to_wavs(self, path):
         """
-
-        :param path:
-        :return:
+        Depending on labeling type (original or four), 
+        create and return list of paths to *.wav files.
+        :param path: path to folder with all needed *.wav files 
+                     and file noise.wav, containing noise sample
+        :return: list with paths to *.wav files and to noise.wav
         """
         if self.label_type == 'original':
+            # Just get all files
             return get_paths_to_wavs(path)
         elif self.label_type == 'four':
+            # Filter out emotions Excitement and Frustration, leaving only 
+            # anger, happiness, neutral, sadness.
             new_paths_to_wavs = []
             paths_to_wavs, path_to_noise = get_paths_to_wavs(path)
             for file in paths_to_wavs:
@@ -108,13 +184,28 @@ class IemocapDataset(torch.utils.data.Dataset):
         return new_paths_to_wavs, path_to_noise
 
     def get_emotion_label(self, path_to_file):
+        """
+        Parse the filename, return emotion label
+        """
         file_name = os.path.split(path_to_file)[1]
         file_name = file_name[:-4]
         emotion_name = file_name.split('_')[-1]  # the last is a position of emotion code
         return self.emotions_dict[emotion_name]
+    
+    def get_gender_label(self, path_to_file):
+        """
+        Todo!
+        """
+        return None
+
+    def get_speaker_label(self, path_to_file):
+        """
+        Todo!
+        """
+        return None
 
     def __len__(self):
-        return len(self.paths_to_wavs_list)
+        return len(self.files)
 
     def read_audio(self, path_to_wav):
         """
@@ -123,45 +214,43 @@ class IemocapDataset(torch.utils.data.Dataset):
         y, sr = librosa.load(path_to_wav, sr=None)
         return (y, sr)
 
-    def make_spectrogram(self, wav, shape):
+    def make_spectrogram(self, wav, shape, hop_length=256):
         """
-        Ordinary spectrogram (dB)
-        """
-        raise NotImplementedError
-
-    def make_melspectrogram(self, wav, shape, hop_length=256):
-        """
-        Mel-scaled spectrogram (dB)
-
+        Create an ordinary or mel-scaled spectrogram, given vaw (y, sr).
+        self.spectrogram_type states if ordinary or mel spectrogram will be created.
+        All spectrograms are log(dB)-scaled and min-max normalized.
         In order to keep the shape constant, random cropping or zero-padding is performed.
         """
         y, sr = wav
-        mel = librosa.feature.melspectrogram(y=y, sr=sr, hop_length=hop_length, n_fft=1024, n_mels=shape)
-        mel = librosa.power_to_db(mel)
-        mel = librosa.util.normalize(mel) + 1
-        rows, cols = mel.shape
+        if self.spectrogram_type == 'melspec':
+            spec = librosa.feature.melspectrogram(y=y, sr=sr, hop_length=hop_length, 
+                                                  n_fft=1280, n_mels=shape)
+            spec = librosa.power_to_db(spec)
+            spec = librosa.util.normalize(spec) + 1
+        elif self.spectrogram_type == 'spec':
+            raise NotImplementedError('This spectrogram type is not currently implemented!')
+        else:
+            raise ValueError('Unknown value for spectrogram_type: should be either melspec or spec!')
+        rows, cols = spec.shape
         diff = cols - shape
         if diff > 0:  # Random crop
             beginning_col = np.random.randint(diff)
-            mel = mel[:, beginning_col:beginning_col + shape]
+            spec = spec[:, beginning_col:beginning_col + shape]
         elif diff < 0:  # Random zero-pad
             zeros = np.zeros((shape, shape), dtype=np.float32)
             beginning_col = np.random.randint(shape - cols)
-            zeros[..., beginning_col:beginning_col + cols] = mel
-            mel = zeros
-        return mel
+            zeros[..., beginning_col:beginning_col + cols] = spec
+            spec = zeros
+        return spec
+
 
     def __getitem__(self, idx):
-        path_to_wav = self.paths_to_wavs_list[idx]
-        wav = self.read_audio(path_to_wav)
-        if self.transform:
-            wav = self.transform(wav)
-        if self.spectrogram_type == 'mel':
-            spectrogram = self.make_melspectrogram(wav, self.spectrogram_shape)
-            # spectrogram = np.expand_dims(spectrogram, axis=0)
-        class_label = self.get_emotion_label(path_to_wav)
-        # return torch.from_numpy(spectrogram).float(), class_label
-        return spectrogram, class_label
+        file_instance = self.files[idx]
+        spec = np.array(file_instance['spectrogram'], dtype=np.float32)
+        labels = []
+        for task in self.tasks:
+            labels.append(file_instance[task])
+        return spec, labels
 
 
 class RavdessDataset(IemocapDataset):
@@ -187,6 +276,12 @@ class RavdessDataset(IemocapDataset):
         class_label = int(file_name.split('-')[2]) - 1  # 2 is a number of emotion code
         return class_label
 
+    def get_gender_label(self, path_to_file):
+        return None
+
+    def get_speaker_label(self, path_to_file):
+        return None
+
 
 
 def train_test_loaders(dataset, validation_ratio=0.2, **kwargs):
@@ -206,8 +301,12 @@ def train_test_loaders(dataset, validation_ratio=0.2, **kwargs):
 
 
 if __name__ == '__main__':
-    iemocap = IemocapDataset(path=IEMOCAP_PATH, name='IEMOCAP', label_type='four', spectrogram_shape=224)
-    # iemocap_train_loader, iemocap_test_loader = train_test_loaders(iemocap, batch_size=1)
+    iemocap = IemocapDataset(
+        path=IEMOCAP_PATH, base_name='IEMOCAP', label_type='four', 
+        spectrogram_shape=224, spectrogram_type='melspec')
     for i in range(len(iemocap)):
-        spec, label = iemocap[i]
-        print(i)
+        spec, [label] = iemocap[i]
+        print(i, ' ', type(spec), ' ', spec.shape, ' ', label)
+        if i % 5 ==0:
+            librosa.display.specshow(spec, cmap='magma')
+            plt.show()
