@@ -4,7 +4,9 @@ import librosa.display
 import torch
 import numpy as np
 import noisereduce as nr
-from torch.utils.data.sampler import SubsetRandomSampler
+from torch.utils.data import random_split
+import matplotlib.pyplot as plt
+from consants import *
 
 
 def get_paths_to_wavs(path_to_dataset):
@@ -89,6 +91,11 @@ class IemocapDataset(torch.utils.data.Dataset):
         self.spectrogram_type = spectrogram_type
 
     def my_get_paths_to_wavs(self, path):
+        """
+
+        :param path:
+        :return:
+        """
         if self.label_type == 'original':
             return get_paths_to_wavs(path)
         elif self.label_type == 'four':
@@ -111,9 +118,9 @@ class IemocapDataset(torch.utils.data.Dataset):
 
     def read_audio(self, path_to_wav):
         """
-        Read .wav file using librosa, NOT keeping orignal framerate
+        Read .wav file using librosa, keeping orignal framerate
         """
-        y, sr = librosa.load(path_to_wav)
+        y, sr = librosa.load(path_to_wav, sr=None)
         return (y, sr)
 
     def make_spectrogram(self, wav, shape):
@@ -151,10 +158,10 @@ class IemocapDataset(torch.utils.data.Dataset):
             wav = self.transform(wav)
         if self.spectrogram_type == 'mel':
             spectrogram = self.make_melspectrogram(wav, self.spectrogram_shape)
-            spectrogram = np.expand_dims(spectrogram, axis=0)
+            # spectrogram = np.expand_dims(spectrogram, axis=0)
         class_label = self.get_emotion_label(path_to_wav)
-        return torch.from_numpy(spectrogram).float(), class_label
-        # return spectrogram, class_label
+        # return torch.from_numpy(spectrogram).float(), class_label
+        return spectrogram, class_label
 
 
 class RavdessDataset(IemocapDataset):
@@ -182,29 +189,25 @@ class RavdessDataset(IemocapDataset):
 
 
 
-def train_test_loaders(dataset, batch_size, random_seed=42, validation_split=0.2):
+def train_test_loaders(dataset, validation_ratio=0.2, **kwargs):
     """
     Create train and test DataLoaders
+    :param kwargs: keyword arguments for DataLoader
+    :return: train and test loaders
     """
     dataset_size = len(dataset)
-    indices = list(range(dataset_size))
-    split = int(np.floor(validation_split * dataset_size))
-    np.random.seed(random_seed)
-    np.random.shuffle(indices)
-    train_indices, test_indices = indices[split:], indices[:split]
-    train_sampler = SubsetRandomSampler(train_indices)
-    test_sampler = SubsetRandomSampler(test_indices)
-    train_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_sampler, num_workers=8)
-    test_loader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=test_sampler, num_workers=8)
+    test_size = int(np.floor(validation_ratio * dataset_size))
+    train_size = dataset_size - test_size
+    train_dataset, test_dataset = random_split(dataset, (train_size, test_size))
+    train_loader = torch.utils.data.DataLoader(train_dataset, **kwargs)
+    test_loader = torch.utils.data.DataLoader(test_dataset, **kwargs)
     return train_loader, test_loader
 
 
 
 if __name__ == '__main__':
-    iemocap = IemocapDataset(path='datasets\\iemocap', name='IEMOCAP', label_type='four', spectrogram_shape=224)
-    iemocap_train_loader, iemocap_test_loader = train_test_loaders(iemocap, batch_size=1)
-    print(len(iemocap_train_loader.dataset))
-    print(len(iemocap_test_loader.dataset))
+    iemocap = IemocapDataset(path=IEMOCAP_PATH, name='IEMOCAP', label_type='four', spectrogram_shape=224)
+    # iemocap_train_loader, iemocap_test_loader = train_test_loaders(iemocap, batch_size=1)
     for i in range(len(iemocap)):
         spec, label = iemocap[i]
-        print(spec.shape)
+        print(i)
