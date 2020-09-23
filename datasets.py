@@ -9,12 +9,14 @@ from torch.utils.data import random_split
 import matplotlib.pyplot as plt
 from consants import *
 import json
+from sys import getsizeof
+import pickle
 
 
-def get_paths_to_wavs(path_to_dataset):
+def get_paths_to_wavs(path_to_dataset_wavs):
     file_paths_list = []
     noise_file_path = ''
-    for root, _dirs, files in os.walk(path_to_dataset):  # Iterate over files in directory
+    for root, _dirs, files in os.walk(path_to_dataset_wavs):  # Iterate over files in directory
         if len(files) != 0:
             for f in files:
                 if f.endswith('.wav'):
@@ -38,7 +40,7 @@ class Denoiser:
     """
 
     def __init__(self, noise_sample, threshold):
-        self.noise = noise_sample[0]
+        self.noise = noise_sample
         self.threshold = threshold
 
     def __call__(self, wav):
@@ -77,71 +79,78 @@ class IemocapDataset(torch.utils.data.Dataset):
         'ang': 5,
     }
 
-    def __init__(self, path, base_name, label_type='original',
-                 spectrogram_type='melspec', spectrogram_shape=128, 
+    def __init__(self, pickle_folder, wavs_folder, base_name, label_type='original',
+                 spectrogram_type='melspec', spectrogram_shape=128,
                  preprocessing='false', tasks=['emotion']):
         super(IemocapDataset, self).__init__()
         self.name = '{}_{}_prep-{}_{}_{}'.format(
             base_name, label_type, preprocessing, spectrogram_type, spectrogram_shape)
-        path_to_json = '{}\\{}.json'.format(path, self.name)
-        try:
-            dictionary = self.read_json(path_to_json)
-        except FileNotFoundError:
-            dictionary = self.create_json_file(path_to_json)
-        self.files = dictionary['files']
         self.label_type = label_type
-        self.paths_to_wavs_list, self.path_to_noise = self.my_get_paths_to_wavs(path)
         self.preprocessing = preprocessing
         self.spectrogram_shape = spectrogram_shape
         self.spectrogram_type = spectrogram_type
         self.tasks = tasks
-       
+        pkl_path = '{}\\{}.pkl'.format(pickle_folder, self.name)
+        try:
+            dictionary = pickle.load(open(pkl_path, "rb"))
+            self.noise = np.array(dictionary['noise'], dtype=np.float32)
+            self.sr = dictionary['sr']
+        except FileNotFoundError:
+            paths_to_wavs_list, path_to_noise = self.my_get_paths_to_wavs(wavs_folder)
+            self.noise, self.sr = self.read_audio(path_to_noise)
+            dictionary = self.create_pickle_file(pkl_path, paths_to_wavs_list)
+        self.files = dictionary['files']
+        del dictionary
 
-    def read_json(self, path_to_json):
-        with open(path_to_json, 'r') as json_file:
-            dictionary = json.load(json_file)
-        return dictionary
 
-    def create_json_file(self, path_to_json):
-        noise, sr = self.read_audio(self.path_to_noise)
+    def create_pickle_file(self, path_to_pkl, paths_to_wavs_list):
+        noise, sr = self.noise, self.sr
         dictionary = {
             'name': self.name, 
-            'noise': noise,
+            'noise': noise.tolist(),
             'sr': sr,
-            'files': self.create_files_dicts_list()
+            'files': self.create_files_dicts_list(paths_to_wavs_list)
             }
-        with open(path_to_json, 'w') as json_file:
-            json.dump(dictionary, json_file)
+        print('Writing file... ')
+        pickle.dump(dictionary, open(path_to_pkl, "wb"))
         return dictionary
 
-    def create_files_dicts_list(self):
+    def create_files_dicts_list(self, paths_to_wavs_list):
         files_dicts_list = []
-        for file_path in self.paths_to_wavs_list:
+        step = 1
+        for file_path in paths_to_wavs_list:
+            print('============================================')
+            print('File {} of {}: {}'.format(step, len(paths_to_wavs_list), file_path))
             files_dicts_list.append(self.create_one_file_dict(file_path))
+            print('Done!')
+            step += 1
+        print(getsizeof(files_dicts_list))
         return files_dicts_list
 
     def create_one_file_dict(self, file_path):
+        print('Reading Audio...')
         y, sr = self.read_audio(file_path)
         if self.preprocessing == 'true':
-            raise NotImplementedError('Preprocessing is not currently implemented!')
-            # y, sr = self.preprocess(y, sr)
-        shape = self.spectrogram_shape
-        spectrogram = self.make_spectrogram((y, sr), shape)
+            print('Preprocessing...')
+            y, sr = self.preprocess(y, sr)
         file_name = os.path.split(file_path)[1]
+        print('Making spectrogram...')
+        spec = self.make_spectrogram((y, sr))
+        print('Extracting egemaps...')
         egemaps = self.get_egemaps(file_path)
+        print('Getting emotion, gender and speaker labels...')
         emotion_label = self.get_emotion_label(file_path)
         gender_label = self.get_gender_label(file_path)
         speaker_label = self.get_speaker_label(file_path)
-        files_dict = { 
+        files_dict = {
             'name': file_name,
-            'path': path,
-            'y': y.tolist(),
-            'spectrogram': spectrogram.tolist(),
+            'spectrogram': spec,
             'egemaps': egemaps,
             'emotion': emotion_label,
             'gender': gender_label,
             'speaker': speaker_label
             }
+        print('Appending...')
         return files_dict
 
     def get_egemaps(self, file_path):
@@ -153,10 +162,10 @@ class IemocapDataset(torch.utils.data.Dataset):
 
     def preprocess(self, y, sr):
         wav = y, sr
-        noise_sample = self.read_audio(self.path_to_noise[0])
+        noise_sample = self.noise
         preprocess = transforms.Compose([
-                                        Denoiser(noise_sample, 25), 
-                                        RemoveSilence(25)
+                                        Denoiser(noise_sample, 4.5),
+                                        RemoveSilence(30)
                                         ])
         y, sr = preprocess(wav)
         return y, sr
@@ -165,7 +174,7 @@ class IemocapDataset(torch.utils.data.Dataset):
         """
         Depending on labeling type (original or four), 
         create and return list of paths to *.wav files.
-        :param path: path to folder with all needed *.wav files 
+        :param path: pickle_folder to folder with all needed *.wav files
                      and file noise.wav, containing noise sample
         :return: list with paths to *.wav files and to noise.wav
         """
@@ -181,7 +190,10 @@ class IemocapDataset(torch.utils.data.Dataset):
                 emotion_label = self.get_emotion_label(file)
                 if emotion_label in (1, 3, 4, 5):
                     new_paths_to_wavs.append(file)
-        return new_paths_to_wavs, path_to_noise
+            return new_paths_to_wavs, path_to_noise
+        else:
+            raise ValueError('Unknown label type! Should be either "original" for all samples, or "four" for anger, '
+                             'happiness, neutral, sadness')
 
     def get_emotion_label(self, path_to_file):
         """
@@ -214,7 +226,7 @@ class IemocapDataset(torch.utils.data.Dataset):
         y, sr = librosa.load(path_to_wav, sr=None)
         return (y, sr)
 
-    def make_spectrogram(self, wav, shape, hop_length=256):
+    def make_spectrogram(self, wav, hop_length=256):
         """
         Create an ordinary or mel-scaled spectrogram, given vaw (y, sr).
         self.spectrogram_type states if ordinary or mel spectrogram will be created.
@@ -222,6 +234,7 @@ class IemocapDataset(torch.utils.data.Dataset):
         In order to keep the shape constant, random cropping or zero-padding is performed.
         """
         y, sr = wav
+        shape = self.spectrogram_shape
         if self.spectrogram_type == 'melspec':
             spec = librosa.feature.melspectrogram(y=y, sr=sr, hop_length=hop_length, 
                                                   n_fft=1280, n_mels=shape)
@@ -246,11 +259,12 @@ class IemocapDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         file_instance = self.files[idx]
-        spec = np.array(file_instance['spectrogram'], dtype=np.float32)
+        spec = file_instance['spectrogram']
+        spec = np.expand_dims(spec, axis=0)
         labels = []
         for task in self.tasks:
             labels.append(file_instance[task])
-        return spec, labels
+        return torch.from_numpy(spec).float(), labels
 
 
 class RavdessDataset(IemocapDataset):
@@ -302,11 +316,11 @@ def train_test_loaders(dataset, validation_ratio=0.2, **kwargs):
 
 if __name__ == '__main__':
     iemocap = IemocapDataset(
-        path=IEMOCAP_PATH, base_name='IEMOCAP', label_type='four', 
+        pickle_folder=IEMOCAP_PATH_TO_WAVS, base_name='IEMOCAP', label_type='four',
         spectrogram_shape=224, spectrogram_type='melspec')
     for i in range(len(iemocap)):
         spec, [label] = iemocap[i]
         print(i, ' ', type(spec), ' ', spec.shape, ' ', label)
-        if i % 5 ==0:
+        if i % 500 == 0:
             librosa.display.specshow(spec, cmap='magma')
             plt.show()

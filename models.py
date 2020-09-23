@@ -29,24 +29,67 @@ class AlexNet(nn.Module):
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),
         )
-        self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
+        self.avgpool = nn.AdaptiveMaxPool2d((6, 6))
         self.classifier = nn.Sequential(
             nn.Dropout(),
             nn.Linear(256 * 6 * 6, 4096),
             nn.ReLU(inplace=True),
-            nn.Dropout(),
+            # nn.Dropout(),
             nn.Linear(4096, 1024),
             nn.ReLU(inplace=True),
-            nn.Linear(1024, 256),
+            nn.Linear(1024, 512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, 128),
             nn.ReLU(inplace=True),
             nn.Dropout(),
-            nn.Linear(256, num_classes)
+            nn.Linear(128, num_classes)
         )
 
     def forward(self, x):
         x = self.features(x)
         x = self.avgpool(x)
         x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+class CNNFromPaper(nn.Module):
+    def __init__(self, num_classes=6):
+        super(CNNFromPaper, self).__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 10, kernel_size=(9, 1), padding=(4, 0)), # Conv1
+            nn.ReLU(inplace=True),
+            nn.Conv2d(10, 10, kernel_size=(5, 1), padding=(2, 0)),  # Conv2
+            nn.ReLU(inplace=True),
+            nn.Conv2d(10, 10, kernel_size=(3, 1), padding=(1, 0)),  # Conv3
+            nn.ReLU(inplace=True),
+            nn.AdaptiveMaxPool2d((62, 64)),  # MaxPool1
+            nn.BatchNorm2d(num_features=10),
+            nn.Conv2d(10, 40, kernel_size=(3, 1), padding=(1, 0)),  # Conv4
+            nn.ReLU(inplace=True),
+            nn.Conv2d(40, 40, kernel_size=(3, 1), padding=(1, 0)),  # Conv5
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 1)),  # MaxPool2
+            nn.BatchNorm2d(num_features=40),
+            nn.Conv2d(40, 80, kernel_size=(13, 1), padding=(6, 0)),  # Conv6
+            nn.ReLU(inplace=True),
+            nn.Conv2d(80, 80, kernel_size=1),  # Conv7
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=(2, 1)),  # MaxPool3
+            nn.BatchNorm2d(num_features=80),
+            nn.Conv2d(80, 80, kernel_size=1),  # Conv8
+            nn.ReLU(inplace=True)
+        )
+        self.classifier = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(in_features=80 * 15 * 64, out_features=80),
+            nn.ReLU(inplace=True),
+            nn.Linear(80, num_classes)
+        )
+
+
+    def forward(self, x):
+        x = self.features(x)
         x = self.classifier(x)
         return x
 
@@ -80,6 +123,7 @@ def train_num_epochs(model, trainloader, testloader, device, criterion, optimize
         for i, (data, target) in enumerate(trainloader):
             print(i)
             data = data.to(device)
+            target = target[0]
             target = target.to(device)
             # zero all the gradient tensors
             optimizer.zero_grad()
@@ -106,13 +150,8 @@ def train_num_epochs(model, trainloader, testloader, device, criterion, optimize
         val_loss, val_acc = validate(model, criterion, testloader, device)
         print('# Validation loss = {}'.format(val_loss))
         print('# Validation acc = {}'.format(val_acc))
-        # print(val_acc > best_acc)
-        # if val_acc > best_acc:
-        #     best_acc = val_acc
-        #     model_name = basic_name + '_ep-{}_loss-{:.3}_acc-{:.3}.pth'.format(epoch_num, val_loss, val_acc)
-        #     path_to_saving_model = os.path.join(path_to_weights, model_name)
-        #     torch.save(model.state_dict(), path_to_saving_model)
-        #     print('model %s have been saved' % (path_to_saving_model))
+        print(val_acc > best_acc)
+
         train_acc_list.append(train_acc)
         val_acc_list.append(val_acc)
         train_loss_list.append(epoch_loss)
@@ -129,6 +168,7 @@ def validate(model, criterion, testloader, device):
     for i, (data, target) in enumerate(testloader):
         t0 = time.time()
         data = data.to(device)
+        target = target[0]
         target = target.to(device)
         with torch.no_grad():
             # run forward step
@@ -139,3 +179,9 @@ def validate(model, criterion, testloader, device):
         total += target.size(0)
         correct += (pred_labels == target).sum().item()
     return epoch_loss / dataset_size, correct / total
+
+if __name__ == '__main__':
+    model = CNNFromPaper()
+    x = torch.randn(1, 1, 64, 64)
+    # Let's print it
+    print(model(x).shape)

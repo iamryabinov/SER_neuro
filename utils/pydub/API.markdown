@@ -19,8 +19,8 @@ Currently Undocumented:
 
 ```python
 from pydub import AudioSegment
-sound1 = AudioSegment.from_file("/path/to/sound.wav", format="wav")
-sound2 = AudioSegment.from_file("/path/to/another_sound.wav", format="wav")
+sound1 = AudioSegment.from_file("/pickle_folder/to/sound.wav", format="wav")
+sound2 = AudioSegment.from_file("/pickle_folder/to/another_sound.wav", format="wav")
 
 # sound1 6 dB louder, then 3.5 dB quieter
 louder = sound1 + 6
@@ -70,20 +70,20 @@ Open an audio file as an `AudioSegment` instance and return it. there are also a
 from pydub import AudioSegment
 
 # wave and raw don’t use ffmpeg
-wav_audio = AudioSegment.from_file("/path/to/sound.wav", format="wav")
-raw_audio = AudioSegment.from_file("/path/to/sound.raw", format="raw",
+wav_audio = AudioSegment.from_file("/pickle_folder/to/sound.wav", format="wav")
+raw_audio = AudioSegment.from_file("/pickle_folder/to/sound.raw", format="raw",
                                    frame_rate=44100, channels=2, sample_width=2)
 
 # all other formats use ffmpeg
-mp3_audio = AudioSegment.from_file("/path/to/sound.mp3", format="mp3")
+mp3_audio = AudioSegment.from_file("/pickle_folder/to/sound.mp3", format="mp3")
 
 # use a file you've already opened (advanced …ish)
-with open("/path/to/sound.wav", "rb") as wav_file:
+with open("/pickle_folder/to/sound.wav", "rb") as wav_file:
     audio_segment = AudioSegment.from_file(wav_file, format="wav")
 
 # also supports the os.PathLike protocol for python >= 3.6
 from pathlib import Path
-wav_path = Path("path/to/sound.wav")
+wav_path = Path("pickle_folder/to/sound.wav")
 wav_audio = AudioSegment.from_file(wav_path)
 ```
 
@@ -107,17 +107,17 @@ Write the `AudioSegment` object to a file – returns a file handle of the outpu
 
 ```python
 from pydub import AudioSegment
-sound = AudioSegment.from_file("/path/to/sound.wav", format="wav")
+sound = AudioSegment.from_file("/pickle_folder/to/sound.wav", format="wav")
 
 # simple export
-file_handle = sound.export("/path/to/output.mp3", format="mp3")
+file_handle = sound.export("/pickle_folder/to/output.mp3", format="mp3")
 
 # more complex export
-file_handle = sound.export("/path/to/output.mp3",
+file_handle = sound.export("/pickle_folder/to/output.mp3",
                            format="mp3",
                            bitrate="192k",
                            tags={"album": "The Bends", "artist": "Radiohead"},
-                           cover="/path/to/albumcovers/radioheadthebends.jpg")
+                           cover="/pickle_folder/to/albumcovers/radioheadthebends.jpg")
 
 # split sound in 5-second slices and export
 for i, chunk in enumerate(sound[::5000]):

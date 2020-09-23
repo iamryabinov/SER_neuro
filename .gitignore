@@ -1,8 +1,7 @@
 /.idea/
-/datasets/**/*.mp4
-/datasets/**/*.wav
+/datasets/
 /bkp/
 
 /__pycache__
-/tools/**/
+/utils/**/
 /**/.ipynb_checkpoints/

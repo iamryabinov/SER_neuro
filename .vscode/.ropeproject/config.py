@@ -33,7 +33,7 @@ def set_prefs(prefs):
     # 'src/my_source_folder' for instance.
     # prefs.add('source_folders', 'src')
 
-    # You can extend python path for looking up modules
+    # You can extend python pickle_folder for looking up modules
     # prefs.add('python_path', '~/python/')
 
     # Should rope save object information or not.

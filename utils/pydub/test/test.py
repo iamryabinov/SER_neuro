@@ -104,7 +104,7 @@ if sys.version_info >= (3, 6):
 
         def test_non_existant_pathlib_path(self):
             from pathlib import Path
-            path = Path('this/path/should/not/exist/do/not/make/this/exist')
+            path = Path('this/pickle_folder/should/not/exist/do/not/make/this/exist')
             with self.assertRaises(FileNotFoundError):
                 _ = AudioSegment.from_file(path)
 
@@ -112,12 +112,12 @@ if sys.version_info >= (3, 6):
             # On Unicies this will raise a IsADirectoryError, on Windows this
             # will result in a PermissionError. Both of these are subclasses of
             # OSError. We aren't so much worried about the specific exception
-            # here, just that reading a file from an empty path is an error.
+            # here, just that reading a file from an empty pickle_folder is an error.
             with self.assertRaises(OSError):
                 _ = AudioSegment.from_file(path)
 
         def test_non_existant_path_like_str(self):
-            path = self.MyPathLike('this/path/should/not/exist/do/not/make/this/exist')
+            path = self.MyPathLike('this/pickle_folder/should/not/exist/do/not/make/this/exist')
             with self.assertRaises(FileNotFoundError):
                 _ = AudioSegment.from_file(path)
 
@@ -126,7 +126,7 @@ if sys.version_info >= (3, 6):
                 _ = AudioSegment.from_file(path)
 
         def test_non_existant_path_like_bytes(self):
-            path = self.MyPathLike(bytes('this/path/should/not/exist/do/not/make/this/exist', sys.getdefaultencoding()))
+            path = self.MyPathLike(bytes('this/pickle_folder/should/not/exist/do/not/make/this/exist', sys.getdefaultencoding()))
             with self.assertRaises(FileNotFoundError):
                 _ = AudioSegment.from_file(path)
 
@@ -1193,7 +1193,7 @@ class NoConverterTests(unittest.TestCase):
         self.wave_empty = os.path.join(data_dir, 'test1_empty.wav')
         self.mp3_file = os.path.join(data_dir, 'test1.mp3')
         self.raw_file = os.path.join(data_dir, 'test1.raw')
-        AudioSegment.converter = "definitely-not-a-path-to-anything-asdjklqwop"
+        AudioSegment.converter = "definitely-not-a-pickle_folder-to-anything-asdjklqwop"
 
     def tearDown(self):
         AudioSegment.converter = get_encoder_name()
