@@ -159,6 +159,27 @@ def train_num_epochs(model, trainloader, testloader, device, criterion, optimize
     return model, train_acc_list, val_acc_list, train_loss_list, val_loss_list
 
 
+def train(model, dataset, epochs, path_to_weights, path_to_results):
+    1. Initialize parameters of training session
+    2. Build file parameters based on them
+    3. Try to read file
+    4. From file get start_epoch, weights
+    5. Resume training (call train_num_epochs)
+    6. Construct a dictionary:
+    dictionary = {
+        'model': modelname
+        'dataset': dataset
+        'labeltype': labeltype
+        'spectype': spectype
+        'specshape': specshape
+        'preprocess': preprocess
+        'padding': padding
+        'tasks': tasks
+        'subset': subset
+        'accuracy': accuracy
+        'loss': loss
+    }
+
 def validate(model, criterion, testloader, device):
     dataset_size = len(testloader.dataset)
     correct = 0

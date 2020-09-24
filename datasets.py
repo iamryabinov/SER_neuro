@@ -81,15 +81,16 @@ class IemocapDataset(torch.utils.data.Dataset):
 
     def __init__(self, pickle_folder, wavs_folder, base_name, label_type='original',
                  spectrogram_type='melspec', spectrogram_shape=128,
-                 preprocessing='false', tasks=['emotion']):
+                 preprocessing='false', padding='zero', tasks=['emotion']):
         super(IemocapDataset, self).__init__()
-        self.name = '{}_{}_prep-{}_{}_{}'.format(
-            base_name, label_type, preprocessing, spectrogram_type, spectrogram_shape)
+        self.name = '{}_{}_prep-{}_{}_{}_{}'.format(
+            base_name, label_type, preprocessing, spectrogram_type, spectrogram_shape, padding)
         self.label_type = label_type
         self.preprocessing = preprocessing
         self.spectrogram_shape = spectrogram_shape
         self.spectrogram_type = spectrogram_type
         self.tasks = tasks
+        self.padding = padding
         pkl_path = '{}\\{}.pkl'.format(pickle_folder, self.name)
         try:
             dictionary = pickle.load(open(pkl_path, "rb"))
@@ -226,7 +227,7 @@ class IemocapDataset(torch.utils.data.Dataset):
         y, sr = librosa.load(path_to_wav, sr=None)
         return (y, sr)
 
-    def make_spectrogram(self, wav, hop_length=256):
+    def make_spectrogram(self, wav, hop_length=96):
         """
         Create an ordinary or mel-scaled spectrogram, given vaw (y, sr).
         self.spectrogram_type states if ordinary or mel spectrogram will be created.
@@ -237,34 +238,45 @@ class IemocapDataset(torch.utils.data.Dataset):
         shape = self.spectrogram_shape
         if self.spectrogram_type == 'melspec':
             spec = librosa.feature.melspectrogram(y=y, sr=sr, hop_length=hop_length, 
-                                                  n_fft=1280, n_mels=shape)
+                                                  n_fft=1408, n_mels=shape)
             spec = librosa.power_to_db(spec)
             spec = librosa.util.normalize(spec) + 1
         elif self.spectrogram_type == 'spec':
-            raise NotImplementedError('This spectrogram type is not currently implemented!')
+            spec = librosa.core.stft(y=y, n_fft=1024, hop_length=128)
+            spec = librosa.amplitude_to_db(spec, ref=np.max)
+            spec = librosa.util.normalize(spec) + 1
         else:
             raise ValueError('Unknown value for spectrogram_type: should be either melspec or spec!')
+
         rows, cols = spec.shape
         diff = cols - shape
-        if diff > 0:  # Random crop
-            beginning_col = np.random.randint(diff)
-            spec = spec[:, beginning_col:beginning_col + shape]
-        elif diff < 0:  # Random zero-pad
-            zeros = np.zeros((shape, shape), dtype=np.float32)
-            beginning_col = np.random.randint(shape - cols)
-            zeros[..., beginning_col:beginning_col + cols] = spec
-            spec = zeros
+        while not diff == 0:
+            if diff > 0:  # Random crop
+                beginning_col = np.random.randint(diff)
+                spec = spec[:, beginning_col:beginning_col + shape]
+            elif diff < 0:  # Pad
+                if self.padding == 'zero': # Random zero-pad
+                    zeros = np.zeros((rows, shape), dtype=np.float32)
+                    beginning_col = np.random.randint(shape - cols)
+                    zeros[..., beginning_col:beginning_col + cols] = spec
+                    spec = zeros
+                elif self.padding == 'repeat':  # Pad spectrogram with itself
+                    spec = np.concatenate([spec, spec], axis=1)
+                else: 
+                    raise ValueError('Unknown value for padding: should be either "zero" or "repeat"!')
+            diff = spec.shape[1] - shape
         return spec
 
 
     def __getitem__(self, idx):
         file_instance = self.files[idx]
         spec = file_instance['spectrogram']
-        spec = np.expand_dims(spec, axis=0)
-        labels = []
-        for task in self.tasks:
-            labels.append(file_instance[task])
-        return torch.from_numpy(spec).float(), labels
+        return spec
+        # spec = np.expand_dims(spec, axis=0)
+        # labels = []
+        # for task in self.tasks:
+        #     labels.append(file_instance[task])
+        # return torch.from_numpy(spec).float(), labels
 
 
 class RavdessDataset(IemocapDataset):
@@ -316,11 +328,16 @@ def train_test_loaders(dataset, validation_ratio=0.2, **kwargs):
 
 if __name__ == '__main__':
     iemocap = IemocapDataset(
-        pickle_folder=IEMOCAP_PATH_TO_WAVS, base_name='IEMOCAP', label_type='four',
-        spectrogram_shape=224, spectrogram_type='melspec')
+        pickle_folder=PATH_TO_PICKLE, 
+        wavs_folder=IEMOCAP_PATH_TO_WAVS,
+        base_name='IEMOCAP_test', 
+        label_type='four',
+        spectrogram_shape=512, 
+        spectrogram_type='melspec',
+        preprocessing='false',
+        padding = 'repeat')
     for i in range(len(iemocap)):
-        spec, [label] = iemocap[i]
-        print(i, ' ', type(spec), ' ', spec.shape, ' ', label)
-        if i % 500 == 0:
-            librosa.display.specshow(spec, cmap='magma')
+        spec = iemocap[i] 
+        if i % 1 == 0:
+            plt.imshow(spec, cmap='Greys_r')
             plt.show()

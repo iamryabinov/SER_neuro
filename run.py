@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     # Dataset and train-test loaders:
     iemocap = IemocapDataset(
-        pickle_folder=PATH_TO_JSONS, wavs_folder=IEMOCAP_PATH_TO_WAVS,
+        pickle_folder=PATH_TO_PICKLE, wavs_folder=IEMOCAP_PATH_TO_WAVS,
         base_name='IEMOCAP', label_type='four', preprocessing='true',
         spectrogram_shape=224, spectrogram_type='melspec')
     print('Loaded dataset successfully')
