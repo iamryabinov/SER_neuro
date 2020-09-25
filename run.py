@@ -2,7 +2,7 @@ import models
 import torch
 from torch import nn
 from datasets import *
-from consants import *
+from constants import *
 from torchsummary import summary
 import pandas as pd
 
