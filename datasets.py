@@ -281,24 +281,26 @@ class IemocapDataset(torch.utils.data.Dataset):
                 else: 
                     raise ValueError('Unknown value for padding: should be either "zero" or "repeat"!')
             diff = spec.shape[1] - shape
-        # min-max scale to fit inside 8-bit range
-        img = scale_minmax(spec, 0, 255).astype(np.uint8)
-        # img = spec
+        img = scale_minmax(spec, 0, 255).astype(np.uint8) # min-max scale to fit inside 8-bit range
         img = np.flip(img, axis=0)  # put low frequencies at the bottom in image
-        # img = 255 - img  # invert. make black==more energy
         img = cv2.resize(img, dsize=(shape, shape), interpolation=cv2.INTER_CUBIC)
+        print(img)
         return img
 
 
     def __getitem__(self, idx):
         file_instance = self.files[idx]
         spec = file_instance['spectrogram']
-        return spec
-        # spec = np.expand_dims(spec, axis=0)
-        # labels = []
-        # for task in self.tasks:
-        #     labels.append(file_instance[task])
-        # return torch.from_numpy(spec).float(), labels
+        normalize_image = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.225])
+        ])
+        spec = normalize_image(spec)
+        # spec = spec.unsqueeze(0)
+        labels = []
+        for task in self.tasks:
+            labels.append(file_instance[task])
+        return spec, labels
 
 
 class RavdessDataset(IemocapDataset):
@@ -346,7 +348,6 @@ def train_test_loaders(dataset, validation_ratio=0.2, **kwargs):
     train_loader = torch.utils.data.DataLoader(train_dataset, **kwargs)
     test_loader = torch.utils.data.DataLoader(test_dataset, **kwargs)
     return train_loader, test_loader
-
 
 
 iemocap_original_64_noprep_zeropad = IemocapDataset(
