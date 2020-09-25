@@ -281,24 +281,26 @@ class IemocapDataset(torch.utils.data.Dataset):
                 else: 
                     raise ValueError('Unknown value for padding: should be either "zero" or "repeat"!')
             diff = spec.shape[1] - shape
-        # min-max scale to fit inside 8-bit range
-        img = scale_minmax(spec, 0, 255).astype(np.uint8)
-        # img = spec
+        img = scale_minmax(spec, 0, 255).astype(np.uint8) # min-max scale to fit inside 8-bit range
         img = np.flip(img, axis=0)  # put low frequencies at the bottom in image
-        # img = 255 - img  # invert. make black==more energy
         img = cv2.resize(img, dsize=(shape, shape), interpolation=cv2.INTER_CUBIC)
+        print(img)
         return img
 
 
     def __getitem__(self, idx):
         file_instance = self.files[idx]
         spec = file_instance['spectrogram']
-        return spec
-        # spec = np.expand_dims(spec, axis=0)
-        # labels = []
-        # for task in self.tasks:
-        #     labels.append(file_instance[task])
-        # return torch.from_numpy(spec).float(), labels
+        normalize_image = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.225])
+        ])
+        spec = normalize_image(spec)
+        # spec = spec.unsqueeze(0)
+        labels = []
+        for task in self.tasks:
+            labels.append(file_instance[task])
+        return spec, labels
 
 
 class RavdessDataset(IemocapDataset):
@@ -347,42 +349,49 @@ def train_test_loaders(dataset, validation_ratio=0.2, **kwargs):
     test_loader = torch.utils.data.DataLoader(test_dataset, **kwargs)
     return train_loader, test_loader
 
+iemocap_four_256_noprep_zeropad = IemocapDataset(
+        pickle_folder=PATH_TO_PICKLE,
+        wavs_folder=IEMOCAP_PATH_TO_WAVS,
+        base_name='IEMOCAP',
+        label_type='four',
+        spectrogram_shape= 256,
+        preprocessing='false',
+        padding='zero')
 
 if __name__ == '__main__':
-
-
-    iemocap_original_64_noprep_zeropad = IemocapDataset(
-        pickle_folder=PATH_TO_PICKLE, 
-        wavs_folder=IEMOCAP_PATH_TO_WAVS,
-        base_name='IEMOCAP',
-        label_type='original',
-        spectrogram_shape= 64,
-        preprocessing='false',
-        padding='zero')
-    iemocap_original_64_prep_zeropad = IemocapDataset(
-        pickle_folder=PATH_TO_PICKLE,
-        wavs_folder=IEMOCAP_PATH_TO_WAVS,
-        base_name='IEMOCAP',
-        label_type='original',
-        spectrogram_shape=64,
-        preprocessing='true',
-        padding='zero')
-    iemocap_original_64_noprep_repeat = IemocapDataset(
-        pickle_folder=PATH_TO_PICKLE,
-        wavs_folder=IEMOCAP_PATH_TO_WAVS,
-        base_name='IEMOCAP',
-        label_type='original',
-        spectrogram_shape=64,
-        preprocessing='false',
-        padding='repeat')
-    iemocap_original_64_prep_repeat = IemocapDataset(
-        pickle_folder=PATH_TO_PICKLE,
-        wavs_folder=IEMOCAP_PATH_TO_WAVS,
-        base_name='IEMOCAP',
-        label_type='original',
-        spectrogram_shape=64,
-        preprocessing='true',
-        padding='repeat')
+    pass
+    # iemocap_original_64_noprep_zeropad = IemocapDataset(
+    #     pickle_folder=PATH_TO_PICKLE, 
+    #     wavs_folder=IEMOCAP_PATH_TO_WAVS,
+    #     base_name='IEMOCAP',
+    #     label_type='original',
+    #     spectrogram_shape= 64,
+    #     preprocessing='false',
+    #     padding='zero')
+    # iemocap_original_64_prep_zeropad = IemocapDataset(
+    #     pickle_folder=PATH_TO_PICKLE,
+    #     wavs_folder=IEMOCAP_PATH_TO_WAVS,
+    #     base_name='IEMOCAP',
+    #     label_type='original',
+    #     spectrogram_shape=64,
+    #     preprocessing='true',
+    #     padding='zero')
+    # iemocap_original_64_noprep_repeat = IemocapDataset(
+    #     pickle_folder=PATH_TO_PICKLE,
+    #     wavs_folder=IEMOCAP_PATH_TO_WAVS,
+    #     base_name='IEMOCAP',
+    #     label_type='original',
+    #     spectrogram_shape=64,
+    #     preprocessing='false',
+    #     padding='repeat')
+    # iemocap_original_64_prep_repeat = IemocapDataset(
+    #     pickle_folder=PATH_TO_PICKLE,
+    #     wavs_folder=IEMOCAP_PATH_TO_WAVS,
+    #     base_name='IEMOCAP',
+    #     label_type='original',
+    #     spectrogram_shape=64,
+    #     preprocessing='true',
+    #     padding='repeat')
     # iemocap_four_128_noprep_zeropad = IemocapDataset(
     #     pickle_folder=PATH_TO_PICKLE,
     #     wavs_folder=IEMOCAP_PATH_TO_WAVS,
@@ -447,3 +456,9 @@ if __name__ == '__main__':
     #     spectrogram_shape=256,
     #     preprocessing='true',
     #     padding='repeat')
+    # for i in range(len(iemocap_four_256_noprep_zeropad)):
+    #     if i % 15 == 0:
+    #         spec, _ = iemocap_four_256_noprep_zeropad[i]
+    #         print(spec)
+    #         print(type(spec))
+    #         print(spec.shape)

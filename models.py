@@ -15,8 +15,9 @@ class AlexNet(nn.Module):
 
     def __init__(self, num_classes=1000):
         super(AlexNet, self).__init__()
+        self.name = 'alexnet'
         self.features = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
+            nn.Conv2d(1, 64, kernel_size=11, stride=4, padding=2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),
             # nn.BatchNorm2d(num_features=64),
@@ -43,6 +44,7 @@ class AlexNet(nn.Module):
             # nn.Dropout(),
             nn.ReLU(inplace=True),
             nn.Linear(4096, 1024),
+            # nn.Dropout(),
             nn.ReLU(inplace=True),
             nn.Linear(1024, num_classes)
         )
@@ -55,10 +57,11 @@ class AlexNet(nn.Module):
         return x
 
 
-class CNNFromPaper(nn.Module):
+class PaperCnnDeepNet(nn.Module):
 
     def __init__(self, num_classes=6):
-        super(CNNFromPaper, self).__init__()
+        super(PaperCnnDeepNet, self).__init__()
+
         self.features = nn.Sequential(
             nn.Conv2d(1, 10, kernel_size=(9, 1), padding=(4, 0)),  # Conv1
             nn.ReLU(inplace=True),
@@ -66,26 +69,29 @@ class CNNFromPaper(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(10, 10, kernel_size=(3, 1), padding=(1, 0)),  # Conv3
             nn.ReLU(inplace=True),
-            nn.AdaptiveMaxPool2d((62, 64)),  # MaxPool1
+            nn.MaxPool2d(kernel_size=(2, 1)),  # MaxPool1
             nn.BatchNorm2d(num_features=10),
+
             nn.Conv2d(10, 40, kernel_size=(3, 1), padding=(1, 0)),  # Conv4
             nn.ReLU(inplace=True),
             nn.Conv2d(40, 40, kernel_size=(3, 1), padding=(1, 0)),  # Conv5
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=(2, 1)),  # MaxPool2
             nn.BatchNorm2d(num_features=40),
+
             nn.Conv2d(40, 80, kernel_size=(13, 1), padding=(6, 0)),  # Conv6
             nn.ReLU(inplace=True),
             nn.Conv2d(80, 80, kernel_size=1),  # Conv7
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=(2, 1)),  # MaxPool3
             nn.BatchNorm2d(num_features=80),
+
             nn.Conv2d(80, 80, kernel_size=1),  # Conv8
             nn.ReLU(inplace=True)
         )
         self.classifier = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(in_features=80 * 15 * 64, out_features=80),
+            nn.Linear(in_features=80 * 8 * 64, out_features=80),
             nn.ReLU(inplace=True),
             nn.Linear(80, num_classes)
         )
@@ -106,12 +112,12 @@ def alexnet(pretrained=False, **kwargs):
 
 class TrainingSession():
     def __init__(self, model, dataset,
-                 criterion, optimizer, learning_rate, num_epochs, batch_size, device,
+                 criterion, optimizer, num_epochs, batch_size, device,
                  path_to_weights, path_to_results):
+        print('INITIALIZING TRAINING SESSION...')
         self.model = model
         self.dataset = dataset
         self.optimizer = optimizer
-        self.learning_rate = learning_rate
         self.num_epochs = num_epochs
         self.batch_size = batch_size
         self.path_to_weights = path_to_weights
@@ -119,19 +125,31 @@ class TrainingSession():
         self.device = device
         self.criterion = criterion
         self.name = '{}__{}'.format(self.model.name, self.dataset.name)
+        print('TRAINING SESSION {} INITIALIZED'.format(self.name))
         checkpoint_file_name = '{}.pt'.format(self.name)
+        print('Trying to load checkpoint from file')
         try:
-            for file in os.listdir(path_to_weights):
-                if checkpoint_file_name in file:
-                    self.checkpoint_path = self.path_to_weights + file
-                    self.current_epoch, self.results_dict = self.load_ckp()
+            if os.listdir(path_to_weights) == []:
+                raise FileNotFoundError
+            for filename in os.listdir(path_to_weights):
+                if checkpoint_file_name in filename:
+                    print('Found file')
+                    self.checkpoint_path = self.path_to_weights + filename
+                    print('Loading file {}'.format(self.checkpoint_path))
+                    epoch, self.results_dict = self.load_ckp()
+                    self.current_epoch = epoch + 1
+                    print('Success!')
         except FileNotFoundError:
+            print('File not found, starting from scratch...')
             self.current_epoch = 1
             self.checkpoint_path = self.path_to_weights + checkpoint_file_name
+            self.results_dict = {}
 
     def load_ckp(self):
         checkpoint = torch.load(self.checkpoint_path)
+        print('Updating model...')
         self.model.load_state_dict(checkpoint['state_dict'])
+        print('Updating optimizer...')
         self.optimizer.load_state_dict(checkpoint['optimizer'])
         return checkpoint['epoch'], checkpoint['results']
 
@@ -139,26 +157,29 @@ class TrainingSession():
         torch.save(checkpoint, self.checkpoint_path)
         if is_best:
             print('## Saving best model')
-            best_fpath = self.path_to_results / '{}__best_model.pt'.format(self.name)
+            best_fpath = self.path_to_results + '{}__best_model.pt'.format(self.name)
             shutil.copyfile(self.checkpoint_path, best_fpath)
 
     def execute(self):
-        print('======================================================================')
-        print('=============TRAINING SESSION STARTED AT EPOCH {}====================='.format(self.current_epoch))
         trainloader, testloader = train_test_loaders(self.dataset, validation_ratio=0.3, num_workers=0,
                                                      batch_size=self.batch_size)
-        if self.current_epoch == self.num_epochs:
+        print('Loaders ready')
+        if self.current_epoch == self.num_epochs + 1:
+            print('===================TRAINING SESSION ENDED!===========================')
             return self.model, self.results_dict
         else:
+            print('======================================================================')
+            print('=============TRAINING SESSION STARTED AT EPOCH {}====================='.format(self.current_epoch))
             self.model, self.results_dict = self.training_loop(trainloader=trainloader,
                                                                testloader=testloader,
-                                                               device=self.device,
                                                                results_dict=self.results_dict)
         print('===================TRAINING SESSION ENDED!===========================')
 
-    def training_loop(self, trainloader, testloader, device, results_dict):
+    def training_loop(self, trainloader, testloadedr, results_dict):
         model = self.model
         optimizer = self.optimizer
+        device = self.device
+        model.to(device)
         starting_epoch = self.current_epoch
         ending_epoch = self.num_epochs + 1
         criterion = self.criterion
@@ -185,6 +206,7 @@ class TrainingSession():
             t0 = time.time()
             # iterate over batches
             for i, (data, target) in enumerate(trainloader):
+                print(i)
                 data = data.to(device)
                 target = target[0]
                 target = target.to(device)
@@ -254,7 +276,20 @@ class TrainingSession():
 
 
 if __name__ == '__main__':
-    model = CNNFromPaper()
-    x = torch.randn(1, 1, 64, 64)
-    # Let's print it
-    print(model(x).shape)
+    cpu = torch.device('cpu')
+    print('Devices ready')
+    dataset = iemocap_four_256_noprep_zeropad
+    print('Dataset ready')
+    model = AlexNet(num_classes=len(dataset.emotions_dict))
+    print('Model ready')
+    criterion = nn.CrossEntropyLoss()
+    lr = 0.01
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    device = cpu
+    session = TrainingSession(
+        model=model, dataset=dataset,
+        criterion=criterion, optimizer=optimizer, num_epochs=2, 
+        batch_size=2, device=device,
+        path_to_weights=WEIGHTS_FOLDER, path_to_results=RESULTS_FOLDER
+    )
+    session.execute()
