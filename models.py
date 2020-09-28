@@ -5,6 +5,7 @@ import time
 import os
 import shutil
 from datasets import *
+from torchsummary import summary
 
 model_urls = {
     'alexnet': 'https://download.pytorch.org/models/alexnet-owt-4df8aa71.pth',
@@ -20,33 +21,40 @@ class AlexNet(nn.Module):
             nn.Conv2d(1, 64, kernel_size=11, stride=4, padding=2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),
-            # nn.BatchNorm2d(num_features=64),
+            nn.BatchNorm2d(num_features=64),
             nn.Conv2d(64, 192, kernel_size=5, padding=2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),
-            # nn.BatchNorm2d(num_features=192),
+            nn.BatchNorm2d(num_features=192),
             nn.Conv2d(192, 384, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.Conv2d(384, 256, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
-            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+            nn.Conv2d(256, 128, kernel_size=3, padding=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),
-            # nn.BatchNorm2d(num_features=256)
+            nn.BatchNorm2d(num_features=128),
+            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2),
+            nn.BatchNorm2d(num_features=128)
         )
         self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
         self.classifier = nn.Sequential(
             nn.Dropout(),
-            nn.Linear(256 * 6 * 6, 4096),
+            nn.Linear(128 * 6 * 6, 4096),
             nn.ReLU(inplace=True),
             nn.Dropout(),
             nn.Linear(4096, 4096),
-            # nn.Dropout(),
+            nn.Dropout(),
             nn.ReLU(inplace=True),
             nn.Linear(4096, 1024),
+            nn.Dropout(),
+            nn.ReLU(inplace=True),
+            nn.Linear(1024, 256),
             # nn.Dropout(),
             nn.ReLU(inplace=True),
-            nn.Linear(1024, num_classes)
+            nn.Linear(256, num_classes)
         )
 
     def forward(self, x):
@@ -61,39 +69,43 @@ class PaperCnnDeepNet(nn.Module):
 
     def __init__(self, num_classes=6):
         super(PaperCnnDeepNet, self).__init__()
-
+        self.name = 'PaperDeepNet'
         self.features = nn.Sequential(
             nn.Conv2d(1, 10, kernel_size=(9, 1), padding=(4, 0)),  # Conv1
             nn.ReLU(inplace=True),
             nn.Conv2d(10, 10, kernel_size=(5, 1), padding=(2, 0)),  # Conv2
             nn.ReLU(inplace=True),
-            nn.Conv2d(10, 10, kernel_size=(3, 1), padding=(1, 0)),  # Conv3
+            nn.Conv2d(10, 10, kernel_size=(3, 1), padding=(0, 0)),  # Conv3
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=(2, 1)),  # MaxPool1
             nn.BatchNorm2d(num_features=10),
 
-            nn.Conv2d(10, 40, kernel_size=(3, 1), padding=(1, 0)),  # Conv4
+            nn.Conv2d(10, 20, kernel_size=(3, 1), padding=(1, 0)),  # Conv4
             nn.ReLU(inplace=True),
-            nn.Conv2d(40, 40, kernel_size=(3, 1), padding=(1, 0)),  # Conv5
+            nn.Conv2d(20, 20, kernel_size=(3, 1), padding=(1, 0)),  # Conv5
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=(2, 1)),  # MaxPool2
-            nn.BatchNorm2d(num_features=40),
+            nn.BatchNorm2d(num_features=20),
 
-            nn.Conv2d(40, 80, kernel_size=(13, 1), padding=(6, 0)),  # Conv6
+            nn.Conv2d(20, 40, kernel_size=(13, 1), padding=(6, 0)),  # Conv6
             nn.ReLU(inplace=True),
-            nn.Conv2d(80, 80, kernel_size=1),  # Conv7
+            nn.Conv2d(40, 40, kernel_size=1),  # Conv7
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=(2, 1)),  # MaxPool3
-            nn.BatchNorm2d(num_features=80),
+            nn.BatchNorm2d(num_features=40),
 
-            nn.Conv2d(80, 80, kernel_size=1),  # Conv8
+            nn.Conv2d(40, 80, kernel_size=1),  # Conv8
             nn.ReLU(inplace=True)
         )
         self.classifier = nn.Sequential(
+            # nn.Dropout(0.75),
             nn.Flatten(),
-            nn.Linear(in_features=80 * 8 * 64, out_features=80),
+            nn.Linear(in_features=80 * 7 * 64, out_features=80),
             nn.ReLU(inplace=True),
-            nn.Linear(80, num_classes)
+            # nn.Dropout(),
+            nn.Linear(80, 30),
+            nn.ReLU(inplace=True),
+            nn.Linear(30, num_classes)
         )
 
     def forward(self, x):
@@ -112,12 +124,13 @@ def alexnet(pretrained=False, **kwargs):
 
 class TrainingSession():
     def __init__(self, model, dataset,
-                 criterion, optimizer, num_epochs, batch_size, device,
+                 criterion, optimizer, scheduler, num_epochs, batch_size, device,
                  path_to_weights, path_to_results):
         print('INITIALIZING TRAINING SESSION...')
         self.model = model
         self.dataset = dataset
         self.optimizer = optimizer
+        self.scheduler = scheduler
         self.num_epochs = num_epochs
         self.batch_size = batch_size
         self.path_to_weights = path_to_weights
@@ -125,6 +138,9 @@ class TrainingSession():
         self.device = device
         self.criterion = criterion
         self.name = '{}__{}'.format(self.model.name, self.dataset.name)
+        self.trainloader, self.testloader = train_test_loaders(self.dataset, validation_ratio=0.2, num_workers=0,
+                                                               batch_size=self.batch_size)
+        print('Loaders ready')
         print('TRAINING SESSION {} INITIALIZED'.format(self.name))
         checkpoint_file_name = '{}.pt'.format(self.name)
         print('Trying to load checkpoint from file')
@@ -147,37 +163,36 @@ class TrainingSession():
 
     def load_ckp(self):
         checkpoint = torch.load(self.checkpoint_path)
-        print('Updating model...')
+        print('Updating model_alex...')
         self.model.load_state_dict(checkpoint['state_dict'])
-        print('Updating optimizer...')
-        self.optimizer.load_state_dict(checkpoint['optimizer'])
+        print('Updating optimizer_alex...')
+        self.optimizer.load_state_dict(checkpoint['optimizer_alex'])
         return checkpoint['epoch'], checkpoint['results']
 
     def save_ckp(self, checkpoint, is_best):
         torch.save(checkpoint, self.checkpoint_path)
         if is_best:
-            print('## Saving best model')
+            print('## Saving best model_alex')
             best_fpath = self.path_to_results + '{}__best_model.pt'.format(self.name)
             shutil.copyfile(self.checkpoint_path, best_fpath)
 
     def execute(self):
-        trainloader, testloader = train_test_loaders(self.dataset, validation_ratio=0.3, num_workers=0,
-                                                     batch_size=self.batch_size)
-        print('Loaders ready')
+
         if self.current_epoch == self.num_epochs + 1:
             print('===================TRAINING SESSION ENDED!===========================')
             return self.model, self.results_dict
         else:
             print('======================================================================')
             print('=============TRAINING SESSION STARTED AT EPOCH {}====================='.format(self.current_epoch))
-            self.model, self.results_dict = self.training_loop(trainloader=trainloader,
-                                                               testloader=testloader,
+            self.model, self.results_dict = self.training_loop(trainloader=self.trainloader,
+                                                               testloader=self.testloader,
                                                                results_dict=self.results_dict)
         print('===================TRAINING SESSION ENDED!===========================')
 
-    def training_loop(self, trainloader, testloadedr, results_dict):
+    def training_loop(self, trainloader, testloader, results_dict):
         model = self.model
         optimizer = self.optimizer
+        scheduler = self.scheduler
         device = self.device
         model.to(device)
         starting_epoch = self.current_epoch
@@ -227,10 +242,14 @@ class TrainingSession():
             print('# Train acc = {}'.format(train_acc))
             print('# Validation process on validation set')
             val_loss, val_acc = self.validate(model, testloader, device)
+            scheduler.step(val_loss)
             print('# Validation loss = {}'.format(val_loss))
             print('# Validation acc = {}'.format(val_acc))
-            is_best = val_acc > best_acc
-            print('# Saving checkpoint...')
+            if val_acc > best_acc:
+                is_best = True
+                best_acc = val_acc
+            else:
+                is_best = False
             train_acc_list.append(train_acc)
             val_acc_list.append(val_acc)
             train_loss_list.append(epoch_loss)
@@ -244,11 +263,12 @@ class TrainingSession():
             checkpoint = {
                 'epoch': epoch_num,
                 'state_dict': model.state_dict(),
-                'optimizer': optimizer.state_dict(),
+                'optimizer_alex': optimizer.state_dict(),
                 'results': results_dict
             }
             self.model = model
             self.optimizer = optimizer
+            print('# Saving checkpoint...')
             self.save_ckp(checkpoint, is_best)
             print('# Done and done!')
         return model, results_dict
@@ -274,22 +294,45 @@ class TrainingSession():
             correct += (pred_labels == target).sum().item()
         return epoch_loss / dataset_size, correct / total
 
+    def overfit_one_batch(self, num_epochs=100, batch_size=10):
+        for epoch_num in range(num_epochs):
+            print('======================================================================')
+            print('Epoch #%d' % epoch_num)
+            epoch_loss = 0.0
+            self.model.train()
+            t0 = time.time()
+            trainloader, _ = train_test_loaders(self.dataset, batch_size=batch_size)
+            first_batch = next(iter(trainloader))
+            dataset_size = batch_size * 50
+            total = 0
+            correct = 0
+            for batch_idx, (data, target) in enumerate([first_batch] * 50):
+                print(batch_idx)
+                data = data.to(self.device)
+                target = target[0]
+                target = target.to(self.device)
+                self.optimizer.zero_grad()  # zero all the gradient tensors
+                predicted = self.model(data)  # run forward step
+                loss = self.criterion(predicted, target)  # compute loss
+                print('loss = {}'.format(loss))
+                loss.backward()  # compute gradient tensors
+                self.optimizer.step()  # update parameters
+                epoch_loss += loss.item() * data.size(0)  # compute the training loss value
+                total += target.size(0)
+                _, pred_labels = torch.max(predicted.data, 1)
+                correct += (pred_labels == target).sum().item()
+            t = time.time() - t0
+            epoch_loss /= dataset_size
+            train_acc = correct / total
+            self.scheduler.step(epoch_loss)
+            print('# Time passed: %.0f s' % t)
+            print('# Epoch loss = %.4f' % epoch_loss)
+            print('# Train acc = {}'.format(train_acc))
+            print('# Validation process on validation set')
+
+
+
 
 if __name__ == '__main__':
-    cpu = torch.device('cpu')
-    print('Devices ready')
-    dataset = iemocap_four_256_noprep_zeropad
-    print('Dataset ready')
-    model = AlexNet(num_classes=len(dataset.emotions_dict))
-    print('Model ready')
-    criterion = nn.CrossEntropyLoss()
-    lr = 0.01
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    device = cpu
-    session = TrainingSession(
-        model=model, dataset=dataset,
-        criterion=criterion, optimizer=optimizer, num_epochs=2, 
-        batch_size=2, device=device,
-        path_to_weights=WEIGHTS_FOLDER, path_to_results=RESULTS_FOLDER
-    )
-    session.execute()
+    model = PaperCnnDeepNet(4)
+    summary(model, (1, 64, 64), device='cpu')

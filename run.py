@@ -1,46 +1,46 @@
-import models
+from models import *
 import torch
 from torch import nn
-from datasets import *
+import datasets
 from constants import *
 from torchsummary import summary
 import pandas as pd
 
-
-
 if __name__ == '__main__':
-    # Devices:
-    cuda = torch.device('cuda:0')
     cpu = torch.device('cpu')
     device = cpu
-
-    # Dataset and train-test loaders:
-    iemocap = IemocapDataset(
-        pickle_folder=PATH_TO_PICKLE, wavs_folder=IEMOCAP_PATH_TO_WAVS,
-        base_name='IEMOCAP', label_type='four', preprocessing='true',
-        spectrogram_shape=224, spectrogram_type='melspec')
-    print('Loaded dataset successfully')
-    iemocap_trainloader, iemocap_testloader = train_test_loaders(iemocap, batch_size=64)
-    print('Train-test loaders ready')
-    #
-    # # Model:
-    model_iemocap = models.alexnet(num_classes=len(iemocap.emotions_dict))
-    model_iemocap.to(device)
-    print('Model ready')
-    #
-    # # Criterion, optimizer, number of epochs:
+    print('Devices ready')
+    dataset_256 = datasets.iemocap_four_256_noprep_zeropad
+    dataset_64 = datasets.iemocap_four_64_noprep_zeropad
+    print('Datasets ready')
+    model_alex = AlexNet(num_classes=len(dataset_256.emotions_dict))
+    model_deepnet = PaperCnnDeepNet(num_classes=len(dataset_64.emotions_dict))
+    print('Models ready')
     criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(params=model_iemocap.parameters())
-    print('Done!')
-    model, train_acc_list, val_acc_list, train_loss_list, val_loss_list = models.train_num_epochs(model=model_iemocap,
-                            trainloader=iemocap_trainloader, testloader=iemocap_testloader,
-                            device=device, criterion=criterion, optimizer=optimizer,
-                            starting_epoch=0, ending_epoch=50)
-    dictionary = {
-        'train acc': train_acc_list,
-        'val acc': val_acc_list,
-        'train loss': train_loss_list,
-        'val loss': val_loss_list
-    }
-    df = pd.DataFrame(dictionary)
-    df.to_csv('first_result_prep.csv', sep=';', index=False)
+
+    lr = 0.001
+    optimizer_alex = torch.optim.Adam(model_alex.parameters(), lr=lr, amsgrad=True)
+    scheduler_alex = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer_alex, mode='min', factor=0.1, patience=5,
+                                                                cooldown=0, min_lr=0, eps=1e-08, verbose=True)
+    optimizer_deepnet = torch.optim.Adam(model_deepnet.parameters(), lr=lr, amsgrad=True)
+    scheduler_deepnet = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer_deepnet, mode='min', factor=0.1,
+                                                                   patience=5,
+                                                                   cooldown=0, min_lr=0, eps=1e-08, verbose=True)
+    print('Optimizers and schedulers ready')
+    session_alex = TrainingSession(
+        model=model_alex, dataset=dataset_256,
+        criterion=criterion, optimizer=optimizer_alex, scheduler=scheduler_alex, num_epochs=100,
+        batch_size=64, device=device,
+        path_to_weights=WEIGHTS_FOLDER, path_to_results=RESULTS_FOLDER
+    )
+    session_deepnet = TrainingSession(
+        model=model_deepnet, dataset=dataset_64,
+        criterion=criterion, optimizer=optimizer_deepnet, scheduler=scheduler_deepnet, num_epochs=100,
+        batch_size=256, device=device,
+        path_to_weights=WEIGHTS_FOLDER, path_to_results=RESULTS_FOLDER
+    )
+    print('Training sessions ready')
+    # session_deepnet.overfit_one_batch(100, 5)
+    session_deepnet.execute()
+    session_alex.execute()
+
