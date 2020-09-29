@@ -69,18 +69,20 @@ class IemocapDataset(torch.utils.data.Dataset):
 
     def __init__(self, pickle_path, wavs_path, egemaps_path, path_for_parser,
                  base_name, label_type='original', spectrogram_type='melspec', spectrogram_shape=128,
-                 preprocessing=False, augmentation=False, padding='zero', tasks=['emotion']):
+                 preprocessing=False, augmentation=False, padding='zero', mode='train', tasks=['emotion']):
         super(IemocapDataset, self).__init__()
-        self.name = '{}_{}_prep-{}_{}_{}'.format(
-            base_name, label_type, str(preprocessing).lower(), spectrogram_type, spectrogram_shape)
+        self.name = '{}_{}_prep-{}_{}'.format(
+            base_name, label_type, str(preprocessing).lower(), mode)
         self.label_type = label_type
         print('============= INITIALIZING DATASET {} ==============='.format(self.name))
         self.preprocessing = preprocessing
+        self.mode = mode
         self.spectrogram_shape = spectrogram_shape
         self.spectrogram_type = spectrogram_type
         self.tasks = tasks
         self.padding = padding
         self.augmentation = augmentation
+        path = os.path.join(wavs_path, mode)
         pkl_path = '{}{}.pkl'.format(pickle_path, self.name)
         try:
             dictionary = pickle.load(open(pkl_path, "rb"))
@@ -88,7 +90,7 @@ class IemocapDataset(torch.utils.data.Dataset):
             self.sr = dictionary['sr']
         except FileNotFoundError:
             self.parsed_dict = self.get_parsed_dict(path_for_parser)
-            paths_to_wavs_list, path_to_noise = self.my_get_paths_to_wavs(wavs_path)
+            paths_to_wavs_list, path_to_noise = self.my_get_paths_to_wavs(path)
             # Todo: we could actually even implement egemaps extraction here
             try:
                 df = pd.read_csv(egemaps_path, delimiter=';')
@@ -194,7 +196,7 @@ class IemocapDataset(torch.utils.data.Dataset):
         wav = y, sr
         noise_sample = self.noise
         preprocessed = transforms.Compose([
-            Denoiser(noise_sample, 1.75),
+            Denoiser(noise_sample, 2),
             RemoveSilence(40)
         ])
         y, sr = preprocessed(wav)
@@ -212,7 +214,7 @@ class IemocapDataset(torch.utils.data.Dataset):
         if shape < 100:
             n_mels = 128
             n_fft = 512
-            hop_length = 196
+            hop_length = 512
         elif shape < 200:
             n_mels = 256
             n_fft = 1024
@@ -227,7 +229,7 @@ class IemocapDataset(torch.utils.data.Dataset):
                                                   n_fft=n_fft, n_mels=n_mels)
             spec = librosa.power_to_db(spec)
         elif self.spectrogram_type == 'spec':
-            spec = np.abs(librosa.core.stft(y=y, n_fft=shape * 4, hop_length=192))
+            spec = np.abs(librosa.core.stft(y=y, n_fft=shape * 4, hop_length=hop_length))
             spec = librosa.amplitude_to_db(spec, ref=np.max)
         else:
             raise ValueError('Unknown value for spectrogram_type: should be either melspec or spec!')
@@ -265,25 +267,17 @@ class IemocapDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         file_instance = self.files[idx]
-        y = file_instance['waveform']
+        y = file_instance['wavedorm']
         spec = self.make_spectrogram((y, self.sr))
-        rows, cols = spec.shape
-        desired_shape = rows
-        diff = cols - desired_shape
-        if self.augmentation:
-            spec = self.augment(spec)
+        if self.mode == 'train':
+            if self.augmentation:
+                spec = self.augment(spec)
+            else:
+                spec = self.unify_size(spec)
+        elif self.mode == 'test':
+            spec = self.unify_size(spec)
         else:
-            while not diff == 0:
-                if diff > 0:  # Random crop
-                    spec = self.random_crop(spec)
-                elif diff < 0:  # Pad
-                    if self.padding == 'zero':  # Random zero-pad
-                        spec = self.zero_pad(spec)
-                    elif self.padding == 'repeat':  # Pad spectrogram with itself
-                        spec = self.repeat(spec, 2)
-                    else:
-                        raise ValueError('Unknown value for padding: should be either "zero" or "repeat"!')
-                diff = spec.shape[1] - desired_shape
+            raise ValueError('Unknown value for mode: should be either "train" or "test"!')
         img = scale_minmax(spec, 0, 255).astype(np.uint8)  # min-max scale to fit inside 8-bit range
         img = np.flip(img, axis=0)  # put low frequencies at the bottom in image
         img_shape = self.spectrogram_shape
@@ -324,11 +318,32 @@ class IemocapDataset(torch.utils.data.Dataset):
         else:
             return spec
 
+    def unify_size(self, spec):
+        rows, cols = spec.shape
+        desired_shape = rows
+        diff = cols - desired_shape
+        while not diff == 0:
+            if diff > 0:  # Random crop
+                spec = self.random_crop(spec)
+                diff = spec.shape[1] - desired_shape
+            elif diff < 0:  # Pad
+                if self.padding == 'zero':  # Random zero-pad
+                    spec = self.zero_pad(spec)
+                    diff = spec.shape[1] - desired_shape
+                elif self.padding == 'repeat':  # Pad spectrogram with itself
+                    spec = self.repeat(spec, 2)
+                    diff = spec.shape[1] - desired_shape
+                else:
+                    raise ValueError('Unknown value for padding: should be either "zero" or "repeat"!')
+        return spec
+
     def random_crop(self, spec):
         rows, cols = spec.shape
         desired_shape = rows
         diff = cols - desired_shape
-        beginning_col = np.random.randint(diff)
+        seed = RANDOM_SEED if self.mode == 'test' else None  # To get the same spectrograms on the test set!!!
+        np.random.seed(seed)
+        beginning_col = np.random.randint(0, diff + 1)
         spec = spec[:, beginning_col:beginning_col + desired_shape]
         spec = scale_minmax(spec, 0, 255).astype(np.uint8)
         return spec
@@ -338,7 +353,9 @@ class IemocapDataset(torch.utils.data.Dataset):
         desired_shape = rows
         spec = scale_minmax(spec, 0, 255).astype(np.uint8)
         zeros = np.zeros((rows, desired_shape), dtype=np.uint8)
-        beginning_col = np.random.randint(desired_shape - cols)
+        seed = RANDOM_SEED if self.mode == 'test' else None  # To get the same spectrograms on the test set!!!
+        np.random.seed(seed)
+        beginning_col = np.random.randint(0, desired_shape - cols + 1)
         zeros[..., beginning_col:beginning_col + cols] = spec
         spec = zeros
         return spec
@@ -346,6 +363,11 @@ class IemocapDataset(torch.utils.data.Dataset):
     def repeat(self, spec, times):
         return np.tile(spec, times)
 
+    def show_image(self):
+        """
+        Todo: function that shows an image in form of mpl figure, maybe with label on it
+        """
+        pass
 
 class RavdessDataset(IemocapDataset):
     emotions_dict = {
