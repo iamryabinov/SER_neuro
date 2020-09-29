@@ -171,8 +171,6 @@ class IemocapDataset(torch.utils.data.Dataset):
             print('Preprocessing...')
             y, sr = self.preprocess(y, sr)
         file_name = os.path.split(file_path)[1]
-        print('Making spectrogram...')
-        spec = self.make_spectrogram((y, sr))
         print('Extracting egemaps...')
         egemaps = self.get_egemaps(file_name)
         print('Getting labels...')
@@ -180,7 +178,7 @@ class IemocapDataset(torch.utils.data.Dataset):
         emotion = self.get_emotion_label(file_name)
         files_dict = {
             'name': file_name,
-            'spectrogram': spec,
+            'wavedorm': y,
             'egemaps': egemaps,
             'speaker': speaker,
             'gender': gender,
@@ -267,7 +265,8 @@ class IemocapDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         file_instance = self.files[idx]
-        spec = file_instance['spectrogram']
+        y = file_instance['waveform']
+        spec = self.make_spectrogram((y, self.sr))
         rows, cols = spec.shape
         desired_shape = rows
         diff = cols - desired_shape
@@ -279,7 +278,7 @@ class IemocapDataset(torch.utils.data.Dataset):
                     spec = self.random_crop(spec)
                 elif diff < 0:  # Pad
                     if self.padding == 'zero':  # Random zero-pad
-                        spec = self.zeropad(spec)
+                        spec = self.zero_pad(spec)
                     elif self.padding == 'repeat':  # Pad spectrogram with itself
                         spec = self.repeat(spec, 2)
                     else:
@@ -303,7 +302,7 @@ class IemocapDataset(torch.utils.data.Dataset):
 
     def augment(self, spec):
         """
-        Random augmentation of short spectrograms: zero-random zero-padding or random cropping.
+        Random augmentation of short spectrograms: random zero-padding or random cropping.
         Makes the spectrogram square-shaped
         :param spec:
         :return:
@@ -317,7 +316,7 @@ class IemocapDataset(torch.utils.data.Dataset):
             # Return random integers from low (inclusive) to high(exclusive).
             dice = np.random.randint(1, 5)
             if dice == 1:
-                return self.zeropad(spec)
+                return self.zero_pad(spec)
             else:
                 repeat = np.random.randint(1, dice)
                 spec = self.repeat(spec, repeat)
@@ -334,7 +333,7 @@ class IemocapDataset(torch.utils.data.Dataset):
         spec = scale_minmax(spec, 0, 255).astype(np.uint8)
         return spec
 
-    def zeropad(self, spec):
+    def zero_pad(self, spec):
         rows, cols = spec.shape
         desired_shape = rows
         spec = scale_minmax(spec, 0, 255).astype(np.uint8)
