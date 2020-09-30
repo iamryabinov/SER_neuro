@@ -1,61 +1,47 @@
+import os
+from torchsummary import summary
+
 import torch
 import torch.nn as nn
 from torch.hub import load_state_dict_from_url
-import time
-import os
-import shutil
-from datasets import *
-from torchsummary import summary
+
+
+__all__ = [
+    'VGG', 'vgg11', 'vgg11_bn', 'vgg13', 'vgg13_bn', 'vgg16', 'vgg16_bn',
+    'vgg19_bn', 'vgg19', 'AlexNet', 'alexnet', 'vgg', 'PaperCnnDeepNet',
+]
 
 model_urls = {
+    'vgg11': 'https://download.pytorch.org/models/vgg11-bbd30ac9.pth',
+    'vgg13': 'https://download.pytorch.org/models/vgg13-c768596a.pth',
+    'vgg16': 'https://download.pytorch.org/models/vgg16-397923af.pth',
+    'vgg19': 'https://download.pytorch.org/models/vgg19-dcbb9e9d.pth',
+    'vgg11_bn': 'https://download.pytorch.org/models/vgg11_bn-6002323d.pth',
+    'vgg13_bn': 'https://download.pytorch.org/models/vgg13_bn-abd245e5.pth',
+    'vgg16_bn': 'https://download.pytorch.org/models/vgg16_bn-6c64b313.pth',
+    'vgg19_bn': 'https://download.pytorch.org/models/vgg19_bn-c79401a0.pth',
     'alexnet': 'https://download.pytorch.org/models/alexnet-owt-4df8aa71.pth',
+
 }
 
+class VGG(nn.Module):
 
-class AlexNet(nn.Module):
-
-    def __init__(self, num_classes=1000):
-        super(AlexNet, self).__init__()
-        self.name = 'alexnet'
-        self.features = nn.Sequential(
-            nn.Conv2d(1, 64, kernel_size=11, stride=4, padding=2),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.BatchNorm2d(num_features=64),
-            nn.Conv2d(64, 192, kernel_size=5, padding=2),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.BatchNorm2d(num_features=192),
-            nn.Conv2d(192, 384, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(384, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(256, 128, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.BatchNorm2d(num_features=128),
-            nn.Conv2d(128, 128, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=3, stride=2),
-            nn.BatchNorm2d(num_features=128)
-        )
-        self.avgpool = nn.AdaptiveAvgPool2d((6, 6))
+    def __init__(self, features, num_classes=4, init_weights=True):
+        super(VGG, self).__init__()
+        self.features = features
+        self.avgpool = nn.AdaptiveAvgPool2d((7, 7))
         self.classifier = nn.Sequential(
+            nn.Linear(512 * 7 * 7, 2048),
+            nn.ReLU(True),
             nn.Dropout(),
-            nn.Linear(128 * 6 * 6, 4096),
+            nn.Linear(2048, 512),
+            nn.ReLU(True),
+            nn.Linear(512, 512),
             nn.ReLU(inplace=True),
-            nn.Dropout(),
-            nn.Linear(4096, 4096),
-            nn.Dropout(),
-            nn.ReLU(inplace=True),
-            nn.Linear(4096, 1024),
-            nn.Dropout(),
-            nn.ReLU(inplace=True),
-            nn.Linear(1024, 256),
-            # nn.Dropout(),
-            nn.ReLU(inplace=True),
-            nn.Linear(256, num_classes)
+            nn.Linear(512, num_classes),
         )
+        if init_weights:
+            self._initialize_weights()
 
     def forward(self, x):
         x = self.features(x)
@@ -64,9 +50,158 @@ class AlexNet(nn.Module):
         x = self.classifier(x)
         return x
 
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm2d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.Linear):
+                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.constant_(m.bias, 0)
+
+
+def make_layers(cfg, batch_norm=False):
+    layers = []
+    in_channels = 1
+    for v in cfg:
+        if v == 'M':
+            layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
+        else:
+            conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
+            if batch_norm:
+                layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
+            else:
+                layers += [conv2d, nn.ReLU(inplace=True)]
+            in_channels = v
+    return nn.Sequential(*layers)
+
+
+cfgs = {
+    'A': [64, 'M', 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+    'B': [64, 64, 'M', 128, 128, 'M', 256, 256, 'M', 512, 512, 'M', 512, 512, 'M'],
+    'D': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 'M', 512, 512, 512, 'M', 512, 512, 512, 'M'],
+    'E': [64, 64, 'M', 128, 128, 'M', 256, 256, 256, 256, 'M', 512, 512, 512, 512, 'M', 512, 512, 512, 512, 'M'],
+}
+
+
+def _vgg(arch, cfg, batch_norm, pretrained, progress, **kwargs):
+    if pretrained:
+        kwargs['init_weights'] = False
+    model = VGG(make_layers(cfgs[cfg], batch_norm=batch_norm), **kwargs)
+    if pretrained:
+        state_dict = load_state_dict_from_url(model_urls[arch],
+                                              progress=progress)
+        model.load_state_dict(state_dict)
+    return model
+
+
+def vgg11(pretrained=False, progress=True, **kwargs):
+    r"""VGG 11-layer model (configuration "A") from
+    `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _vgg('vgg11', 'A', False, pretrained, progress, **kwargs)
+
+
+def vgg11_bn(pretrained=False, progress=True, **kwargs):
+    r"""VGG 11-layer model (configuration "A") with batch normalization
+    `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _vgg('vgg11_bn', 'A', True, pretrained, progress, **kwargs)
+
+
+def vgg13(pretrained=False, progress=True, **kwargs):
+    r"""VGG 13-layer model (configuration "B")
+    `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _vgg('vgg13', 'B', False, pretrained, progress, **kwargs)
+
+
+def vgg13_bn(pretrained=False, progress=True, **kwargs):
+    r"""VGG 13-layer model (configuration "B") with batch normalization
+    `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _vgg('vgg13_bn', 'B', True, pretrained, progress, **kwargs)
+
+
+def vgg16(pretrained=False, progress=True, **kwargs):
+    r"""VGG 16-layer model (configuration "D")
+    `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _vgg('vgg16', 'D', False, pretrained, progress, **kwargs)
+
+
+def vgg16_bn(pretrained=False, progress=True, **kwargs):
+    r"""VGG 16-layer model (configuration "D") with batch normalization
+    `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _vgg('vgg16_bn', 'D', True, pretrained, progress, **kwargs)
+
+
+def vgg19(pretrained=False, progress=True, **kwargs):
+    r"""VGG 19-layer model (configuration "E")
+    `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _vgg('vgg19', 'E', False, pretrained, progress, **kwargs)
+
+
+def vgg19_bn(pretrained=False, progress=True, **kwargs):
+    r"""VGG 19-layer model (configuration 'E') with batch normalization
+    `"Very Deep Convolutional Networks For Large-Scale Image Recognition" <https://arxiv.org/pdf/1409.1556.pdf>`_
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
+    return _vgg('vgg19_bn', 'E', True, pretrained, progress, **kwargs)                          
+
+def vgg(num_classes, type=16, bn=False):
+    choice_dict = {
+        (11, False): vgg11(num_classes=num_classes),
+        (11, True): vgg11_bn(num_classes=num_classes),
+        (13, False): vgg13(num_classes=num_classes),
+        (13, True): vgg13_bn(num_classes=num_classes),
+        (16, False): vgg16(num_classes=num_classes),
+        (16, True): vgg16_bn(num_classes=num_classes),
+        (19, False): vgg19(num_classes=num_classes),
+        (19, True): vgg19_bn(num_classes=num_classes),
+    }
+    choice = (type, bn)
+    return(choice_dict[choice])
+
 
 class PaperCnnDeepNet(nn.Module):
-
     def __init__(self, num_classes=6):
         super(PaperCnnDeepNet, self).__init__()
         self.name = 'PaperDeepNet'
@@ -77,7 +212,7 @@ class PaperCnnDeepNet(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(10, 10, kernel_size=(3, 1), padding=(0, 0)),  # Conv3
             nn.ReLU(inplace=True),
-            nn.MaxPool2d(kernel_size=(2, 1)),  # MaxPool1
+            nn.MaxPool2d(kernel_size=(3, 1)),  # MaxPool1
             nn.BatchNorm2d(num_features=10),
 
             nn.Conv2d(10, 20, kernel_size=(3, 1), padding=(1, 0)),  # Conv4
@@ -98,14 +233,16 @@ class PaperCnnDeepNet(nn.Module):
             nn.ReLU(inplace=True)
         )
         self.classifier = nn.Sequential(
-            # nn.Dropout(0.75),
+            nn.Dropout(0.75),
             nn.Flatten(),
-            nn.Linear(in_features=80 * 7 * 64, out_features=80),
+            nn.Linear(in_features=80 * 5 * 64, out_features=256),
             nn.ReLU(inplace=True),
             # nn.Dropout(),
-            nn.Linear(80, 30),
+            nn.Linear(256, 256),
             nn.ReLU(inplace=True),
-            nn.Linear(30, num_classes)
+            nn.Linear(256, 64),
+            nn.ReLU(inplace=True),
+            nn.Linear(64, num_classes)
         )
 
     def forward(self, x):
@@ -114,225 +251,109 @@ class PaperCnnDeepNet(nn.Module):
         return x
 
 
-def alexnet(pretrained=False, **kwargs):
+class PaperCnnStrideNet(nn.Module):
+
+    def __init__(self, num_classes=4):
+        super(PaperCnnStrideNet, self).__init__()
+        self.features = nn.Sequential(
+                nn.Conv2d(1, 16, (7, 7), (2, 2), (2, 2)),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(16, 32, (5, 5), (2, 2), (2, 2)),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(32, 32, (3, 3), (2, 2), (2, 2)),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(32, 64, (3, 3), (2, 2), (2, 2)),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(64, 64, (3, 3), (2, 2), (2, 2)),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(64, 128, (3, 3), (2, 2), (2, 2)),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(128, 128, (3, 3), (2, 2), (2, 2)),
+                nn.ReLU(inplace=True)
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Linear(128*3*3, 512),
+            nn.ReLU(inplace=True),
+            nn.Dropout(0.25, inplace=True),
+            nn.Linear(512, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        # x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+class AlexNet(nn.Module):
+
+    def __init__(self, num_classes=4):
+        super(AlexNet, self).__init__()
+        self.features = nn.Sequential(
+            nn.Conv2d(1, 64, kernel_size=11, stride=4, padding=2),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2),
+            nn.Conv2d(64, 192, kernel_size=5, padding=2),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2),
+            nn.Conv2d(192, 384, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(384, 256, kernel_size=3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, 256, kernel_size=4, padding=1),
+            nn.ReLU(inplace=True),
+            nn.MaxPool2d(kernel_size=3, stride=2),
+        )
+        self.avgpool = nn.AdaptiveAvgPool2d((5, 5))
+        self.classifier = nn.Sequential(
+            nn.Dropout(),
+            nn.Linear(256 * 5 * 5, 2048),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+            nn.Linear(2048, 512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, 512),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, num_classes),
+        )
+
+    def forward(self, x):
+        x = self.features(x)
+        # x = self.avgpool(x)
+        x = torch.flatten(x, 1)
+        x = self.classifier(x)
+        return x
+
+
+def alexnet(pretrained=False, progress=True, **kwargs):
+    r"""AlexNet model architecture from the
+    `"One weird trick..." <https://arxiv.org/abs/1404.5997>`_ paper.
+
+    Args:
+        pretrained (bool): If True, returns a model pre-trained on ImageNet
+        progress (bool): If True, displays a progress bar of the download to stderr
+    """
     model = AlexNet(**kwargs)
     if pretrained:
-        state_dict = load_state_dict_from_url(model_urls['alexnet'])
+        state_dict = load_state_dict_from_url(model_urls['alexnet'],
+                                              progress=progress)
         model.load_state_dict(state_dict)
     return model
 
 
-class TrainingSession():
-    def __init__(self, model, dataset,
-                 criterion, optimizer, scheduler, num_epochs, batch_size, device,
-                 path_to_weights, path_to_results):
-        print('INITIALIZING TRAINING SESSION...')
-        self.model = model
-        self.dataset = dataset
-        self.optimizer = optimizer
-        self.scheduler = scheduler
-        self.num_epochs = num_epochs
-        self.batch_size = batch_size
-        self.path_to_weights = path_to_weights
-        self.path_to_results = path_to_results
-        self.device = device
-        self.criterion = criterion
-        self.name = '{}__{}'.format(self.model.name, self.dataset.name)
-        self.trainloader, self.testloader = train_test_loaders(self.dataset, validation_ratio=0.2, num_workers=0,
-                                                               batch_size=self.batch_size)
-        print('Loaders ready')
-        print('TRAINING SESSION {} INITIALIZED'.format(self.name))
-        checkpoint_file_name = '{}.pt'.format(self.name)
-        print('Trying to load checkpoint from file')
-        try:
-            if os.listdir(path_to_weights) == []:
-                raise FileNotFoundError
-            for filename in os.listdir(path_to_weights):
-                if checkpoint_file_name in filename:
-                    print('Found file')
-                    self.checkpoint_path = self.path_to_weights + filename
-                    print('Loading file {}'.format(self.checkpoint_path))
-                    epoch, self.results_dict = self.load_ckp()
-                    self.current_epoch = epoch + 1
-                    print('Success!')
-        except FileNotFoundError:
-            print('File not found, starting from scratch...')
-            self.current_epoch = 1
-            self.checkpoint_path = self.path_to_weights + checkpoint_file_name
-            self.results_dict = {}
-
-    def load_ckp(self):
-        checkpoint = torch.load(self.checkpoint_path)
-        print('Updating model_alex...')
-        self.model.load_state_dict(checkpoint['state_dict'])
-        print('Updating optimizer_alex...')
-        self.optimizer.load_state_dict(checkpoint['optimizer_alex'])
-        return checkpoint['epoch'], checkpoint['results']
-
-    def save_ckp(self, checkpoint, is_best):
-        torch.save(checkpoint, self.checkpoint_path)
-        if is_best:
-            print('## Saving best model_alex')
-            best_fpath = self.path_to_results + '{}__best_model.pt'.format(self.name)
-            shutil.copyfile(self.checkpoint_path, best_fpath)
-
-    def execute(self):
-
-        if self.current_epoch == self.num_epochs + 1:
-            print('===================TRAINING SESSION ENDED!===========================')
-            return self.model, self.results_dict
-        else:
-            print('======================================================================')
-            print('=============TRAINING SESSION STARTED AT EPOCH {}====================='.format(self.current_epoch))
-            self.model, self.results_dict = self.training_loop(trainloader=self.trainloader,
-                                                               testloader=self.testloader,
-                                                               results_dict=self.results_dict)
-        print('===================TRAINING SESSION ENDED!===========================')
-
-    def training_loop(self, trainloader, testloader, results_dict):
-        model = self.model
-        optimizer = self.optimizer
-        scheduler = self.scheduler
-        device = self.device
-        model.to(device)
-        starting_epoch = self.current_epoch
-        ending_epoch = self.num_epochs + 1
-        criterion = self.criterion
-        dataset_size = len(trainloader.dataset)
-        correct = 0
-        total = 0
-        best_acc = 0.0
-        if starting_epoch == 1:
-            train_acc_list = []
-            val_acc_list = []
-            train_loss_list = []
-            val_loss_list = []
-        else:
-            train_acc_list = results_dict['train accuracy']
-            val_acc_list = results_dict['test accuracy']
-            train_loss_list = results_dict['train loss']
-            val_loss_list = results_dict['test loss']
-        # iterate over epochs
-        for epoch_num in range(starting_epoch, ending_epoch):
-            print('======================================================================')
-            print('Epoch #%d' % epoch_num)
-            epoch_loss = 0.0
-            model.train()
-            t0 = time.time()
-            # iterate over batches
-            for i, (data, target) in enumerate(trainloader):
-                print(i)
-                data = data.to(device)
-                target = target[0]
-                target = target.to(device)
-                optimizer.zero_grad()  # zero all the gradient tensors
-                predicted = model(data)  # run forward step
-                loss = criterion(predicted, target)  # compute loss
-                loss.backward()  # compute gradient tensors
-                optimizer.step()  # update parameters
-                epoch_loss += loss.item() * data.size(0)  # compute the training loss value
-                total += target.size(0)
-                _, pred_labels = torch.max(predicted.data, 1)
-                correct += (pred_labels == target).sum().item()
-            t = time.time() - t0
-            epoch_loss /= dataset_size
-            train_acc = correct / total
-            print('# Time passed: %.0f s' % t)
-            print('# Epoch loss = %.4f' % epoch_loss)
-            print('# Train acc = {}'.format(train_acc))
-            print('# Validation process on validation set')
-            val_loss, val_acc = self.validate(model, testloader, device)
-            scheduler.step(val_loss)
-            print('# Validation loss = {}'.format(val_loss))
-            print('# Validation acc = {}'.format(val_acc))
-            if val_acc > best_acc:
-                is_best = True
-                best_acc = val_acc
-            else:
-                is_best = False
-            train_acc_list.append(train_acc)
-            val_acc_list.append(val_acc)
-            train_loss_list.append(epoch_loss)
-            val_loss_list.append(val_loss)
-            results_dict = {
-                'train accuracy': train_acc_list,
-                'test accuracy': val_acc_list,
-                'train loss': train_loss_list,
-                'test loss': val_loss_list
-            }
-            checkpoint = {
-                'epoch': epoch_num,
-                'state_dict': model.state_dict(),
-                'optimizer_alex': optimizer.state_dict(),
-                'results': results_dict
-            }
-            self.model = model
-            self.optimizer = optimizer
-            print('# Saving checkpoint...')
-            self.save_ckp(checkpoint, is_best)
-            print('# Done and done!')
-        return model, results_dict
-
-    def validate(self, model, testloader, device):
-        dataset_size = len(testloader.dataset)
-        correct = 0
-        total = 0
-        model.eval()
-        epoch_loss = 0.0
-        for i, (data, target) in enumerate(testloader):
-            t0 = time.time()
-            data = data.to(device)
-            target = target[0]
-            target = target.to(device)
-            with torch.no_grad():
-                # run forward step
-                predicted = model(data)
-                loss = self.criterion(predicted, target)
-                epoch_loss += loss.item() * data.size(0)
-            _, pred_labels = torch.max(predicted.data, 1)
-            total += target.size(0)
-            correct += (pred_labels == target).sum().item()
-        return epoch_loss / dataset_size, correct / total
-
-    def overfit_one_batch(self, num_epochs=100, batch_size=10):
-        for epoch_num in range(num_epochs):
-            print('======================================================================')
-            print('Epoch #%d' % epoch_num)
-            epoch_loss = 0.0
-            self.model.train()
-            t0 = time.time()
-            trainloader, _ = train_test_loaders(self.dataset, batch_size=batch_size)
-            first_batch = next(iter(trainloader))
-            dataset_size = batch_size * 50
-            total = 0
-            correct = 0
-            for batch_idx, (data, target) in enumerate([first_batch] * 50):
-                print(batch_idx)
-                data = data.to(self.device)
-                target = target[0]
-                target = target.to(self.device)
-                self.optimizer.zero_grad()  # zero all the gradient tensors
-                predicted = self.model(data)  # run forward step
-                loss = self.criterion(predicted, target)  # compute loss
-                print('loss = {}'.format(loss))
-                loss.backward()  # compute gradient tensors
-                self.optimizer.step()  # update parameters
-                epoch_loss += loss.item() * data.size(0)  # compute the training loss value
-                total += target.size(0)
-                _, pred_labels = torch.max(predicted.data, 1)
-                correct += (pred_labels == target).sum().item()
-            t = time.time() - t0
-            epoch_loss /= dataset_size
-            train_acc = correct / total
-            self.scheduler.step(epoch_loss)
-            print('# Time passed: %.0f s' % t)
-            print('# Epoch loss = %.4f' % epoch_loss)
-            print('# Train acc = {}'.format(train_acc))
-            print('# Validation process on validation set')
-
-
-
 
 if __name__ == '__main__':
-    model = PaperCnnDeepNet(4)
-    summary(model, (1, 64, 64), device='cpu')
+    # model = vgg(4, 11, bn=False)
+    # summary(model, (1, 224, 224), device='cpu')
+    # model = vgg(4, 11, bn=True)
+    # summary(model, (1, 224, 224), device='cpu')
+    model = vgg(4, 19, bn=True)
+    summary(model, (1, 224, 224), device='cpu')
+    # # model = alexnet(pretrained=False, progress=False, num_classes=4)
+    # # summary(model, (1, 224, 224), device='cpu')
+    # model = PaperCnnStrideNet(4)
+    # summary(model, (1, 128, 128))
+    # model = PaperCnnDeepNet(4)
+    # summary(model, (1, 64, 64))
