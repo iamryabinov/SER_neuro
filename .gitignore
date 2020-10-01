@@ -1,0 +1,10 @@
+/.idea/
+/datasets/
+/**/**.pkl
+/bkp/
+/models/**/
+/__pycache__/
+/utils/**/
+/**/.ipynb_checkpoints/
+/.tmp.drivedownload/
+/.vscode/
