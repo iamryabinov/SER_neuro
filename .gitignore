@@ -6,4 +6,5 @@
 /utils/**/
 /**/.ipynb_checkpoints/
 /.tmp.drivedownload/
+/**/**.pkl
 /.vscode/
