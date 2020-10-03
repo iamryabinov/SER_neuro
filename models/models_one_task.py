@@ -35,8 +35,6 @@ class VGG(nn.Module):
             nn.ReLU(True),
             nn.Dropout(),
             nn.Linear(2048, 512),
-            nn.ReLU(True),
-            nn.Linear(512, 512),
             nn.ReLU(inplace=True),
             nn.Linear(512, num_classes),
         )
@@ -313,8 +311,7 @@ class AlexNet(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout(),
             nn.Linear(2048, 512),
-            nn.ReLU(inplace=True),
-            nn.Linear(512, 512),
+            nn.Dropout(0.75),
             nn.ReLU(inplace=True),
             nn.Linear(512, num_classes),
         )
