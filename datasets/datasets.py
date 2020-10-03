@@ -40,12 +40,12 @@ def get_paths_to_wavs(path_to_dataset_wavs):
 
 class IemocapDataset(torch.utils.data.Dataset):
     emotions_dict = {
-        'exc': 0,
-        'sad': 1,
-        'fru': 2,
-        'hap': 3,
-        'neu': 4,
-        'ang': 5,
+        'ang': 0,
+        'hap': 1,
+        'neu': 2,
+        'sad': 3,
+        'exc': 4,
+        'fru': 5,
     }
 
     speakers_dict = {
@@ -251,17 +251,17 @@ class IemocapDataset(torch.utils.data.Dataset):
         img = np.flip(img, axis=0)  # put low frequencies at the bottom in image
         img_shape = self.spectrogram_shape
         img = cv2.resize(img, dsize=(img_shape, img_shape), interpolation=cv2.INTER_CUBIC)
-        # normalize_image = transforms.Compose([
-        #     transforms.ToTensor(),
-        #     transforms.Normalize(mean=[0.5], std=[0.225])
-        # ])
-        # img = normalize_image(img)
+        normalize_image = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5], std=[0.225])
+        ])
+        img = normalize_image(img)
         labels = []
         for task in self.tasks:
             labels.append(file_instance[task])
         data = img
         target = labels[0]
-        return data, target
+        return data, self.emotions_dict[target]
 
     def make_spectrogram(self, wav):
         """
@@ -369,7 +369,9 @@ class IemocapDataset(torch.utils.data.Dataset):
         """
         Function that shows an image in form of mpl axes
         """
-        img, label = self.__getitem__(idx)
+        img, labels = self.__getitem__(idx)
+        img = img.numpy()
+        img = np.squeeze(img, axis=0)
         ax = plt.imshow(img, **kwargs)
         return ax
 
