@@ -70,8 +70,8 @@ class IemocapDataset(torch.utils.data.Dataset):
                  base_name, label_type='original', spectrogram_type='melspec', spectrogram_shape=128,
                  preprocessing=False, augmentation=False, padding='zero', mode='train', tasks=['emotion']):
         super(IemocapDataset, self).__init__()
-        self.name = '{}_{}_prep-{}_{}'.format(
-            base_name, label_type, str(preprocessing).lower(), mode)
+        self.name = '{}_{}_prep-{}_{}_{}'.format(
+            base_name, label_type, str(preprocessing).lower(), spectrogram_shape, mode)
         self.label_type = label_type
         print('============= INITIALIZING DATASET {} ==============='.format(self.name))
         self.preprocessing = preprocessing
@@ -172,6 +172,8 @@ class IemocapDataset(torch.utils.data.Dataset):
             print('Preprocessing...')
             y, sr = self.preprocess(y, sr)
         file_name = os.path.split(file_path)[1]
+        print('Making spectrogram...')
+        spec = self.make_spectrogram((y, sr))
         print('Extracting egemaps...')
         egemaps = self.get_egemaps(file_name)
         print('Getting labels...')
@@ -179,7 +181,7 @@ class IemocapDataset(torch.utils.data.Dataset):
         emotion = self.get_emotion_label(file_name)
         files_dict = {
             'name': file_name,
-            'wavedorm': y,
+            'spectrogram': spec,
             'egemaps': egemaps,
             'speaker': speaker,
             'gender': gender,
@@ -236,8 +238,7 @@ class IemocapDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         file_instance = self.files[idx]
-        y = file_instance['wavedorm']
-        spec = self.make_spectrogram((y, self.sr))
+        spec = file_instance['spectrogram']
         if self.mode == 'train':
             if self.augmentation:
                 spec = self.augment(spec)

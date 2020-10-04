@@ -64,4 +64,4 @@ def make_train_test_folders(wavs_folder, train_folder_path, test_folder_path, se
 
 
 if __name__ == '__main__':
-    make_train_test_folders(IEMOCAP_PATH_TO_WAVS, IEMOCAP_PATH_TO_WAVS + 'train\\', IEMOCAP_PATH_TO_WAVS + 'test\\')
+    make_train_test_folders(RAMAS_PATH_TO_WAVS, RAMAS_PATH_TO_WAVS + 'train\\', RAMAS_PATH_TO_WAVS + 'test\\')
