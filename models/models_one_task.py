@@ -273,7 +273,7 @@ class PaperCnnStrideNet(nn.Module):
         self.classifier = nn.Sequential(
             nn.Linear(128*3*3, 512),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.25, inplace=True),
+            nn.Dropout(0.25),
             nn.Linear(512, num_classes)
         )
 
