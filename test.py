@@ -1,4 +1,4 @@
-from datasets import IemocapDataset
+from iemocap import IemocapDataset
 from constants import *
 import torch.nn as nn
 import skorch

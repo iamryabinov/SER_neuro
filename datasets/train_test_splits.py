@@ -2,6 +2,8 @@ import sklearn.model_selection as ms
 import os
 from constants import *
 import shutil
+import tqdm
+import pandas as pd
 
 
 def get_paths_to_wavs(path_to_dataset_wavs):
@@ -63,5 +65,64 @@ def make_train_test_folders(wavs_folder, train_folder_path, test_folder_path, se
         shutil.copy2(file, test_folder_path)
 
 
+def copy_domination_submission_files(in_path, out_path):
+    for file in os.listdir(in_path):
+        if file.endswith('Domination.wav') or file.endswith('Submission.wav'):
+            shutil.copy2(os.path.join(in_path, file), out_path)
+            print('Copied {}'.format(file))
+
+def cut_ramas_files():
+    # !!!!!!!!!!!
+    # Важно прописать путь windows именно в линуксовском стиле через /
+    # иначе возникают проблемы с косыми чертами при передаче этого пути в командную строку
+    source_path = 'E:/Projects/SER/datasets/RAMAS/Audio/'
+    video_list = [item for item in os.listdir(source_path) if item.endswith('.wav')]
+
+    # !!!!!!!!!!!
+    # Важно прописать путь windows именно в линуксовском стиле через /
+    # иначе возникают проблемы с косыми чертами при передаче этого пути в командную строку
+    target_path = 'E:/Projects/SER/datasets/RAMAS/Audio/Audio_cut/'
+    if not os.path.isdir(target_path):
+        os.mkdir(target_path)
+
+    # !!!!!!!!!!!
+    # Здесь можно оставить виндовский стиль, т.к. этот путь не подается в комендную строку
+    path_to_csvs = 'E:\\Projects\\SER\\datasets\\RAMAS\\Annotations_by_emotions'
+    csvs_list = [item for item in os.listdir(path_to_csvs) if (item.endswith('.csv') and 'labeled' not in item)]
+
+    for csv_name in csvs_list:
+        path_to_csv = os.path.join(path_to_csvs, csv_name)
+        df = pd.read_csv(path_to_csv, delimiter=';')
+        class_name = csv_name[:-4].split('_')[1]
+
+        # iterate over rows of the dataframe
+        for idx, row in tqdm(df.iterrows()):
+            i = 1
+            ID = row['ID']
+            in_file_mane = row['File']
+            start_time = row['Start']
+            end_time = row['End']
+            class_name = row['emotion']
+            in_file_path = source_path + in_file_mane + '_mic.wav'
+            out_file_name = in_file_mane + '_{}_{}.wav'.format(idx, class_name)
+            out_file_path = target_path + out_file_name
+            ffmpeg_str = 'ffmpeg -ss {} -i {} -to {} -c copy {}'.format(start_time, in_file_path, end_time,
+                                                                        out_file_path)
+            i += 1
+            os.system(ffmpeg_str)
+
+def segment_ramas_files():
+    source_path = 'E:/Projects/SER/datasets/RAMAS/Audio/Audio_cut/domination_submission/'
+    audio_list = [item for item in os.listdir(source_path) if item.endswith('.wav')]
+    target_path = 'E:/Projects/SER/datasets/RAMAS/Audio/Audio_cut/domination_submission/segmented/'
+    for in_file in audio_list:
+        in_file_path = os.path.join(source_path, in_file)
+        print('==============================================')
+        print(in_file_path)
+        ffmpeg_string = 'ffmpeg -i {} -f segment -segment_time 2 -c copy {}%03d_{}'.format(
+            in_file_path, target_path, in_file
+        )
+        os.system(ffmpeg_string)
+
 if __name__ == '__main__':
-    make_train_test_folders(RAMAS_PATH_TO_WAVS, RAMAS_PATH_TO_WAVS + 'train\\', RAMAS_PATH_TO_WAVS + 'test\\')
+    segment_ramas_files()
