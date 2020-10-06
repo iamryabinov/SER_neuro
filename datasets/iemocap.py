@@ -260,13 +260,18 @@ class IemocapDataset(torch.utils.data.Dataset):
             transforms.Normalize(mean=[0.5], std=[0.225])
         ])
         img = normalize_image(img)
-        labels = []
-        for task in self.tasks:
-            labels.append(file_instance[task])
+#         labels = []
+#         for task in self.tasks:
+#             labels.append(file_instance[task])
         data = img
-        target = labels[0]
-        return data, self.emotions_dict[target]
+#         target = labels[0]
+#         return data, self.emotions_dict[target]
+        emotion = file_instance['emotion']
+        speaker = file_instance['speaker']
+        gender = file_instance['gender']
+        return data, (self.emotions_dict[emotion], self.speakers_dict[speaker], self.genders_dict[gender])
 
+                      
     def make_spectrogram(self, wav):
         """
         Create an ordinary or mel-scaled spectrogram, given vaw (y, sr).
@@ -381,119 +386,7 @@ class IemocapDataset(torch.utils.data.Dataset):
 
 
 
-    def read_audio(self, path_to_wav):
-        """
-        Read .wav file using librosa, not keeping orignal framerate
-        """
-        y, sr = librosa.load(path_to_wav, sr=16000)
-        return (y, sr)
 
-    def my_get_paths_to_wavs(self, path):
-        """
-        Depending on labeling type (original or four),
-        create and return list of paths to *.wav files.
-        :param path: pickle_path to folder with all needed *.wav files
-                     and file noise.wav, containing noise sample
-        :return: list with paths to *.wav files and to noise.wav
-        """
-        return get_paths_to_wavs(path)
-
-
-    def create_one_file_dict(self, file_path):
-        print('Reading Audio...')
-        y, sr = self.read_audio(file_path)
-        if self.preprocessing:
-            print('Preprocessing...')
-            y, sr = self.preprocess(y, sr)
-        file_name = os.path.split(file_path)[1]
-        # print('Making spectrogram...')
-        # spec = self.make_spectrogram((y, sr))
-        print('Getting labels...')
-        emotion, speaker, gender = self.get_labels(file_name)
-        files_dict = {
-            'name': file_name,
-            'waveform': y,
-            # 'spectrogram': spec,
-            'speaker': speaker,
-            'gender': gender,
-            'emotion': emotion,
-        }
-        print('Appending...')
-        return files_dict
-
-    def __getitem__(self, idx):
-        file_instance = self.files[idx]
-        y = file_instance['waveform']
-        spec = self.make_spectrogram((y, self.sr))
-        if self.mode == 'train':
-            if self.augmentation:
-                spec = self.augment(spec)
-            else:
-                spec = self.unify_size(spec)
-        elif self.mode == 'test':
-            spec = self.unify_size(spec)
-        else:
-            raise ValueError('Unknown value for mode: should be either "train" or "test"!')
-        img = scale_minmax(spec, 0, 255).astype(np.uint8)  # min-max scale to fit inside 8-bit range
-        img = np.flip(img, axis=0)  # put low frequencies at the bottom in image
-        img_shape = self.spectrogram_shape
-        img = cv2.resize(img, dsize=(img_shape, img_shape), interpolation=cv2.INTER_CUBIC)
-        normalize_image = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5], std=[0.225])
-        ])
-        img = normalize_image(img)
-        labels = []
-        for task in self.tasks:
-            labels.append(file_instance[task])
-        data = img
-        target = labels[0]
-        return data, self.emotions_dict[target]
-
-    def get_parsed_dict(self, path):
-        print('Parsing dataset files...')
-        return None
-
-    def get_emotion_label(self, file_name):
-        """
-        Parse the filename, which has the following pattern:
-        modality-vocal_channel-emotion-intensity-statement-repetition-actor.wav
-        e.g., '02-01-06-01-02-01-12.wav'
-        """
-        file_name = file_name[:-4]
-        class_label = file_name.split('_')[-1]
-        return class_label
-
-    def get_egemaps(self, file_name):
-        return None
-
-    def get_labels(self, file_name):
-        file_name = file_name[:-4]
-        _, date, script_id, speaker_id, _, emotion = file_name.split('_')
-        speaker_id = date + speaker_id
-        gender_id = date + speaker_id
-        emotion_id = self.emotions_dict[emotion]
-        speaker_id = self.emotions_dict[speaker_id]
-        gender_id = self.emotions_dict[gender_id]
-        return emotion_id, speaker_id, gender_id
-
-
-def train_test_loaders(dataset, validation_ratio=0.2, **kwargs):
-    """
-    Create train and test DataLoaders
-    :param kwargs: keyword arguments for DataLoader
-    :return: train and test loaders
-    """
-    dataset_size = len(dataset)
-    test_size = int(np.floor(validation_ratio * dataset_size))
-    train_size = dataset_size - test_size
-    print('TRAIN SIZE {}'.format(train_size))
-    print('TEST SIZE {}'.format(test_size))
-    train_dataset, test_dataset = random_split(dataset, (train_size, test_size),
-                                               generator=torch.Generator().manual_seed(RANDOM_SEED))
-    train_loader = torch.utils.data.DataLoader(train_dataset, **kwargs)
-    test_loader = torch.utils.data.DataLoader(test_dataset, **kwargs)
-    return train_loader, test_loader
 
 
 """
@@ -784,6 +677,26 @@ class RemoveSilence:
             nonsilent_part = y[beginning: end]
             nonsilent_y = np.concatenate((nonsilent_y, nonsilent_part))
         return nonsilent_y, sr
+    
+
+    
+
+def train_test_loaders(dataset, validation_ratio=0.2, **kwargs):
+    """
+    Create train and test DataLoaders
+    :param kwargs: keyword arguments for DataLoader
+    :return: train and test loaders
+    """
+    dataset_size = len(dataset)
+    test_size = int(np.floor(validation_ratio * dataset_size))
+    train_size = dataset_size - test_size
+    print('TRAIN SIZE {}'.format(train_size))
+    print('TEST SIZE {}'.format(test_size))
+    train_dataset, test_dataset = random_split(dataset, (train_size, test_size),
+                                               generator=torch.Generator().manual_seed(RANDOM_SEED))
+    train_loader = torch.utils.data.DataLoader(train_dataset, **kwargs)
+    test_loader = torch.utils.data.DataLoader(test_dataset, **kwargs)
+    return train_loader, test_loader
 
 
 if __name__ == '__main__':

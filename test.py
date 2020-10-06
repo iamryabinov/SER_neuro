@@ -5,7 +5,6 @@ import skorch
 import skorch.dataset
 from skorch.callbacks import *
 import torch
-from models import PaperCnnDeepNet
 import numpy as np
 from torch.optim.lr_scheduler import CyclicLR
 
@@ -18,7 +17,6 @@ iemocap_four_64_noprep_zeropad = IemocapDataset(
     preprocessing='false',
     padding='zero')
 dataset = iemocap_four_64_noprep_zeropad
-model = PaperCnnDeepNet(len(dataset.emotions_dict))
 cpu = torch.device('cpu')
 device = cpu
 print('Models ready')

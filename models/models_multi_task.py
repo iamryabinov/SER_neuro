@@ -28,32 +28,24 @@ class AlexNetMultiTask(nn.Module):
             nn.MaxPool2d(kernel_size=3, stride=2),
         )
         self.avgpool = nn.AdaptiveAvgPool2d((5, 5))
-        self.classifier_emotion = nn.Sequential(
+        self.joint_classifier = nn.Sequential(
             nn.Dropout(),
             nn.Linear(256 * 5 * 5, 2048),
             nn.ReLU(inplace=True),
             nn.Dropout(),
             nn.Linear(2048, 512),
+        )
+        self.classifier_emotion = nn.Sequential(
             nn.Dropout(0.75),
             nn.ReLU(inplace=True),
             nn.Linear(512, num_emotions),
         )
         self.classifier_speaker = nn.Sequential(
-            nn.Dropout(),
-            nn.Linear(256 * 5 * 5, 2048),
-            nn.ReLU(inplace=True),
-            nn.Dropout(),
-            nn.Linear(2048, 512),
             nn.Dropout(0.75),
             nn.ReLU(inplace=True),
             nn.Linear(512, num_speakers),
         )
         self.classifier_gender = nn.Sequential(
-            nn.Dropout(),
-            nn.Linear(256 * 5 * 5, 2048),
-            nn.ReLU(inplace=True),
-            nn.Dropout(),
-            nn.Linear(2048, 512),
             nn.Dropout(0.75),
             nn.ReLU(inplace=True),
             nn.Linear(512, num_genders),
@@ -63,6 +55,7 @@ class AlexNetMultiTask(nn.Module):
         hidden = self.features(x)
         hidden = self.avgpool(hidden)
         hidden = hidden.flatten(1)
+        hidden = self.joint_classifier(hidden)
         emotion_prediction = self.classifier_emotion(hidden)
         speaker_prediction = self.classifier_speaker(hidden)
         gender_prediction = self.classifier_gender(hidden)
