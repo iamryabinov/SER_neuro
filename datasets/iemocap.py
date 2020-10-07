@@ -264,20 +264,20 @@ class IemocapDataset(torch.utils.data.Dataset):
 
 
         if self.tasks == 'emotion':
-            emotion = file_instance['emotion']
+            emotion = self.emotions_dict[file_instance['emotion']]
             target = emotion
         elif self.tasks == ('emotion', 'speaker'):
-            emotion = file_instance['emotion']
-            speaker = file_instance['speaker']
+            emotion = self.emotions_dict[file_instance['emotion']]
+            speaker = self.speakers_dict[file_instance['speaker']]
             target = emotion, speaker
         elif self.tasks == ('emotion', 'gender'):
-            emotion = file_instance['emotion']
-            gender = file_instance['gender']
+            emotion = self.emotions_dict[file_instance['emotion']]
+            gender = self.genders_dict[file_instance['gender']]
             target = emotion, gender
         elif self.tasks == ('emotion', 'speaker', 'gender'):
-            emotion = file_instance['emotion']
-            speaker = file_instance['speaker']
-            gender = file_instance['gender']
+            emotion = self.emotions_dict[file_instance['emotion']]
+            speaker = self.speakers_dict[file_instance['speaker']]
+            gender = self.genders_dict[file_instance['gender']]
             target = emotion, speaker, gender
         elif self.tasks == ('valence', 'arousal', 'dominance'):
             valence = file_instance['valence']
