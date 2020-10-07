@@ -336,7 +336,6 @@ class TrainingSession():
             correct_gender = 0
             for batch_idx, (data, target) in enumerate([first_batch] * 50):
                 data = data.to(self.device)
-                print(batch_idx)
                 target_emotion, target_speaker, target_gender = target
                 target_emotion = target_emotion.to(self.device)
                 target_speaker = target_speaker.to(self.device)
