@@ -29,25 +29,19 @@ class AlexNetMultiTask(nn.Module):
         )
         self.avgpool = nn.AdaptiveAvgPool2d((5, 5))
         self.joint_classifier = nn.Sequential(
-            nn.Dropout(),
             nn.Linear(256 * 5 * 5, 2048),
-            nn.ReLU(inplace=True),
             nn.Dropout(),
+            nn.ReLU(inplace=True),
             nn.Linear(2048, 512),
+            nn.ReLU(inplace=True),
         )
         self.classifier_emotion = nn.Sequential(
-            nn.Dropout(0.75),
-            nn.ReLU(inplace=True),
             nn.Linear(512, num_emotions),
         )
         self.classifier_speaker = nn.Sequential(
-            nn.Dropout(0.75),
-            nn.ReLU(inplace=True),
             nn.Linear(512, num_speakers),
         )
         self.classifier_gender = nn.Sequential(
-            nn.Dropout(0.75),
-            nn.ReLU(inplace=True),
             nn.Linear(512, num_genders),
         )
 
