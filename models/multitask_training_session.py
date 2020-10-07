@@ -7,15 +7,17 @@ import shutil
 from iemocap import *
 from torchsummary import summary
 from models import *
+from torch.utils.data import DataLoader
 
 
 class TrainingSession():
-    def __init__(self, name, model, dataset,
+    def __init__(self, name, model, train_dataset,
                  criterion, optimizer, num_epochs, batch_size, device,
-                 path_to_weights, path_to_results):
+                 path_to_weights, path_to_results, test_dataset=None, ):
         print('INITIALIZING TRAINING SESSION...')
         self.model = model
-        self.dataset = dataset
+        self.train_dataset = train_dataset
+        self.test_dataset = test_dataset
         self.optimizer = optimizer
         self.num_epochs = num_epochs
         self.batch_size = batch_size
@@ -23,9 +25,13 @@ class TrainingSession():
         self.path_to_results = path_to_results
         self.device = device
         self.criterion = criterion
-        self.name = '{}__{}'.format(name, self.dataset.name)
-        self.trainloader, self.testloader = train_test_loaders(self.dataset, validation_ratio=0.2, num_workers=0,
-                                                               batch_size=self.batch_size)
+        self.name = '{}__{}'.format(name, self.train_dataset.name)
+        if self.test_dataset == None:
+            self.trainloader, self.testloader = train_test_loaders(self.train_dataset, validation_ratio=0.2,
+                                                                   num_workers=4, batch_size=self.batch_size)
+        else:
+            self.trainloader = DataLoader(self.train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=4)
+            self.testloader  = DataLoader(self.test_dataset, batch_size=self.batch_size, shuffle=True, num_workers=4)
         print('Loaders ready')
         print('TRAINING SESSION {} INITIALIZED'.format(self.name))
         checkpoint_file_name = '{}.pt'.format(self.name)
@@ -134,8 +140,8 @@ class TrainingSession():
             t0 = time.time()
             # iterate over batches
             for i, (data, target) in enumerate(trainloader):
+                print(i)
                 data = data.to(device)
-
                 target_emotion, target_speaker, target_gender = target
                 target_emotion = target_emotion.to(device)
                 target_speaker = target_speaker.to(device)
@@ -156,7 +162,7 @@ class TrainingSession():
                 epoch_loss_gender += loss_gender.item() * data.size(0)
                 epoch_loss_total += loss_total.item() * data.size(0)  # compute the training loss value
 
-                total += target.size(0)
+                total += target[0].size(0)
                 _, pred_labels_emotion = torch.max(predicted_emotion.data, 1)
                 _, pred_labels_speaker = torch.max(predicted_speaker.data, 1)
                 _, pred_labels_gender = torch.max(predicted_gender.data, 1)
@@ -285,7 +291,7 @@ class TrainingSession():
                 val_loss_gender += loss_gender.item() * data.size(0)
                 val_loss_total += loss_total.item() * data.size(0)  # compute the training loss value
 
-            total += target.size(0)
+            total += target[0].size(0)
             _, pred_labels_emotion = torch.max(predicted_emotion.data, 1)
             _, pred_labels_speaker = torch.max(predicted_speaker.data, 1)
             _, pred_labels_gender = torch.max(predicted_gender.data, 1)
@@ -303,8 +309,7 @@ class TrainingSession():
             val_acc_speaker = correct_speaker / total
             val_acc_gender = correct_gender / total
 
-
-            val_losses = val_loss_emotion, val_loss_speaker, val_loss_gender
+            val_losses = val_loss_emotion, val_loss_speaker, val_loss_gender, val_loss_total
             val_accuracies = val_acc_emotion, val_acc_speaker, val_acc_gender
 
         return val_losses, val_accuracies

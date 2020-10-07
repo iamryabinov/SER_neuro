@@ -260,16 +260,33 @@ class IemocapDataset(torch.utils.data.Dataset):
             transforms.Normalize(mean=[0.5], std=[0.225])
         ])
         img = normalize_image(img)
-#         labels = []
-#         for task in self.tasks:
-#             labels.append(file_instance[task])
         data = img
-#         target = labels[0]
-#         return data, self.emotions_dict[target]
-        emotion = file_instance['emotion']
-        speaker = file_instance['speaker']
-        gender = file_instance['gender']
-        return data, (self.emotions_dict[emotion], self.speakers_dict[speaker], self.genders_dict[gender])
+
+
+        if self.tasks == 'emotion':
+            emotion = file_instance['emotion']
+            target = emotion
+        elif self.tasks == ('emotion', 'speaker'):
+            emotion = file_instance['emotion']
+            speaker = file_instance['speaker']
+            target = emotion, speaker
+        elif self.tasks == ('emotion', 'gender'):
+            emotion = file_instance['emotion']
+            gender = file_instance['gender']
+            target = emotion, gender
+        elif self.tasks == ('emotion', 'speaker', 'gender'):
+            emotion = file_instance['emotion']
+            speaker = file_instance['speaker']
+            gender = file_instance['gender']
+            target = emotion, speaker, gender
+        elif self.tasks == ('valence', 'arousal', 'dominance'):
+            valence = file_instance['valence']
+            arousal = file_instance['arousal']
+            dominance = file_instance['dominance']
+            target = valence, arousal, dominance
+        else:
+            raise ValueError('Unresolved tasks value!')
+        return data, target
 
                       
     def make_spectrogram(self, wav):
