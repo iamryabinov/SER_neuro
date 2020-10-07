@@ -6,13 +6,15 @@ if __name__ == '__main__':
     iemocap_224_noprep_train = IemocapDataset(  # Без препроцессинга, тренировочный
         PATH_TO_PICKLE, IEMOCAP_PATH_TO_WAVS, IEMOCAP_PATH_TO_EGEMAPS, IEMOCAP_PATH_FOR_PARSER,
         base_name='IEMOCAP-4', label_type='four', mode='train', preprocessing=False,
-        augmentation=False, padding='repeat', spectrogram_shape=224, spectrogram_type='melspec', tasks=['emotion']
+        augmentation=False, padding='repeat', spectrogram_shape=224, spectrogram_type='melspec',
+        tasks=('emotion', 'speaker', 'gender')
     )
 
     iemocap_224_noprep_test = IemocapDataset(  # Без препроцессинга, тестовый
         PATH_TO_PICKLE, IEMOCAP_PATH_TO_WAVS, IEMOCAP_PATH_TO_EGEMAPS, IEMOCAP_PATH_FOR_PARSER,
         base_name='IEMOCAP-4', label_type='four', mode='test', preprocessing=False,
-        augmentation=False, padding='repeat', spectrogram_shape=224, spectrogram_type='melspec', tasks=['emotion']
+        augmentation=False, padding='repeat', spectrogram_shape=224, spectrogram_type='melspec',
+        tasks=('emotion', 'speaker', 'gender')
     )
     model = AlexNetMultiTask(4, 10, 2)
     train_dataset = iemocap_224_noprep_train
@@ -32,5 +34,5 @@ if __name__ == '__main__':
                          path_to_weights=WEIGHTS_FOLDER,
                          path_to_results=RESULTS_FOLDER)
 
-    ts.execute()
+    ts.overfit_one_batch(100, 100)
 

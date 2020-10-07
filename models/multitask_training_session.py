@@ -315,6 +315,8 @@ class TrainingSession():
         return val_losses, val_accuracies
 
     def overfit_one_batch(self, num_epochs=100, batch_size=10):
+        model = self.model
+        model.to(self.device)
         for epoch_num in range(num_epochs):
             print('======================================================================')
             print('Epoch #%d' % epoch_num)
@@ -325,14 +327,14 @@ class TrainingSession():
             t0 = time.time()
             self.model.train()
             t0 = time.time()
-            trainloader, _ = train_test_loaders(self.dataset, batch_size=batch_size)
+            trainloader, _ = train_test_loaders(self.train_dataset, batch_size=batch_size)
             first_batch = next(iter(trainloader))
             dataset_size = batch_size * 50
             total = 0
             correct_emotion = 0
             correct_speaker = 0
             correct_gender = 0
-            for batch_idx, (data, target) in enumerate([first_batch] * 50):
+            for batch_idx, (data, target) in enumerate([first_batch] * 10):
                 print(batch_idx)
                 target_emotion, target_speaker, target_gender = target
                 target_emotion = target_emotion.to(self.device)
