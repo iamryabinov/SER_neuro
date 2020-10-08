@@ -56,9 +56,9 @@ class TrainingSession():
 
     def load_ckp(self):
         checkpoint = torch.load(self.checkpoint_path)
-        print('Updating model_alex...')
+        print('Updating model...')
         self.model.load_state_dict(checkpoint['state_dict'])
-        print('Updating optimizer_alex...')
+        print('Updating optimizer...')
         self.optimizer.load_state_dict(checkpoint['optimizer_alex'])
         return checkpoint['epoch'], checkpoint['results']
 

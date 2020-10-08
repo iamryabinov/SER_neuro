@@ -64,51 +64,42 @@ def make_train_test_folders(wavs_folder, train_folder_path, test_folder_path, se
         print("{}/{}".format(i + 1, len(X_test)))
         shutil.copy2(file, test_folder_path)
 
-
 def copy_domination_submission_files(in_path, out_path):
     for file in os.listdir(in_path):
         if file.endswith('Domination.wav') or file.endswith('Submission.wav'):
             shutil.copy2(os.path.join(in_path, file), out_path)
             print('Copied {}'.format(file))
 
-def cut_ramas_files():
-    # !!!!!!!!!!!
-    # Важно прописать путь windows именно в линуксовском стиле через /
-    # иначе возникают проблемы с косыми чертами при передаче этого пути в командную строку
-    source_path = 'E:/Projects/SER/datasets/RAMAS/Audio/'
-    video_list = [item for item in os.listdir(source_path) if item.endswith('.wav')]
+def cut_ramas_files(source_path, path_to_csvs, target_path):
+    """
+    Parse audio files in source_path, and csv files with labelings 
+    in path_to_csvs (annotations by emotion).
+    Cut audio files and assign them labels according to csvs using ffmpeg.
+    Copy those files to the target_path folder.
 
-    # !!!!!!!!!!!
-    # Важно прописать путь windows именно в линуксовском стиле через /
-    # иначе возникают проблемы с косыми чертами при передаче этого пути в командную строку
-    target_path = 'E:/Projects/SER/datasets/RAMAS/Audio/Audio_cut/'
+    !!!
+    source_path and target_path should be path strings in Linux style, 
+    because they get passed to the cmd.
+    path_to_csv should be path string in either Windows or Linux style.
+    """
+    audio_list = [item for item in os.listdir(source_path) if item.endswith('.wav')]
     if not os.path.isdir(target_path):
         os.mkdir(target_path)
-
-    # !!!!!!!!!!!
-    # Здесь можно оставить виндовский стиль, т.к. этот путь не подается в комендную строку
-    path_to_csvs = 'E:\\Projects\\SER\\datasets\\RAMAS\\Annotations_by_emotions'
     csvs_list = [item for item in os.listdir(path_to_csvs) if (item.endswith('.csv') and 'labeled' not in item)]
-
     for csv_name in csvs_list:
         path_to_csv = os.path.join(path_to_csvs, csv_name)
         df = pd.read_csv(path_to_csv, delimiter=';')
         class_name = csv_name[:-4].split('_')[1]
-
-        # iterate over rows of the dataframe
         for idx, row in tqdm(df.iterrows()):
-            i = 1
-            ID = row['ID']
-            in_file_mane = row['File']
+            in_file_name = row['File']
             start_time = row['Start']
             end_time = row['End']
             class_name = row['emotion']
-            in_file_path = source_path + in_file_mane + '_mic.wav'
-            out_file_name = in_file_mane + '_{}_{}.wav'.format(idx, class_name)
+            in_file_path = source_path + in_file_name + '_mic.wav'
+            out_file_name = in_file_name + '_{}_{}.wav'.format(idx, class_name)
             out_file_path = target_path + out_file_name
             ffmpeg_str = 'ffmpeg -ss {} -i {} -to {} -c copy {}'.format(start_time, in_file_path, end_time,
                                                                         out_file_path)
-            i += 1
             os.system(ffmpeg_str)
 
 def segment_ramas_files():
