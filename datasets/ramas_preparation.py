@@ -2,7 +2,7 @@ import sklearn.model_selection as ms
 import os
 from constants import *
 import shutil
-import tqdm
+from tqdm import tqdm
 import pandas as pd
 
 
@@ -45,7 +45,7 @@ def make_X_y_dict(file_paths_list):
     return dictionary
 
 
-def make_train_test_folders(wavs_folder, train_folder_path, test_folder_path, seed=42):
+def make_train_test_folders(wavs_folder, train_folder_path, test_folder_path, **kwargs):
     if not os.path.exists(train_folder_path):
         os.mkdir(train_folder_path)
     if not os.path.exists(test_folder_path):
@@ -56,7 +56,7 @@ def make_train_test_folders(wavs_folder, train_folder_path, test_folder_path, se
     dict = make_X_y_dict(get_paths_to_wavs(wavs_folder)[0])
     X = dict['X']
     y = dict['y']
-    X_train, X_test, y_train, y_test = ms.train_test_split(X, y, stratify=y, test_size=0.2, random_state=seed)
+    X_train, X_test, y_train, y_test = ms.train_test_split(X, y, stratify=y, **kwargs)
     for file, i in zip(X_train, range(len(X_train))):
         print("{}/{}".format(i+1, len(X_train)))
         shutil.copy2(file, train_folder_path)
@@ -65,12 +65,13 @@ def make_train_test_folders(wavs_folder, train_folder_path, test_folder_path, se
         shutil.copy2(file, test_folder_path)
 
 def copy_domination_submission_files(in_path, out_path):
+    """Parse folder with labeled files (in_path), copy only domination and submission samples into out_path"""
     for file in os.listdir(in_path):
         if file.endswith('Domination.wav') or file.endswith('Submission.wav'):
             shutil.copy2(os.path.join(in_path, file), out_path)
             print('Copied {}'.format(file))
 
-def cut_ramas_files(source_path, path_to_csvs, target_path):
+def cut_and_label_ramas_files(source_path, path_to_csvs, target_path):
     """
     Parse audio files in source_path, and csv files with labelings 
     in path_to_csvs (annotations by emotion).
@@ -78,14 +79,16 @@ def cut_ramas_files(source_path, path_to_csvs, target_path):
     Copy those files to the target_path folder.
 
     !!!
-    source_path and target_path should be path strings in Linux style, 
+    source_path and target_path should be folder strings in Linux style,
     because they get passed to the cmd.
-    path_to_csv should be path string in either Windows or Linux style.
+    path_to_csvs should be folder string in either Windows or Linux style.
     """
     audio_list = [item for item in os.listdir(source_path) if item.endswith('.wav')]
     if not os.path.isdir(target_path):
         os.mkdir(target_path)
-    csvs_list = [item for item in os.listdir(path_to_csvs) if (item.endswith('.csv') and 'labeled' not in item)]
+    csvs_list = [item for item in os.listdir(path_to_csvs)
+                 if (item.endswith('Domination.csv') or item.endswith('Submission.csv'))]
+    # csvs_list = [item for item in os.listdir(path_to_csvs) if (item.endswith('.csv') and 'labeled' not in item)]
     for csv_name in csvs_list:
         path_to_csv = os.path.join(path_to_csvs, csv_name)
         df = pd.read_csv(path_to_csv, delimiter=';')
@@ -102,18 +105,51 @@ def cut_ramas_files(source_path, path_to_csvs, target_path):
                                                                         out_file_path)
             os.system(ffmpeg_str)
 
-def segment_ramas_files():
-    source_path = 'E:/Projects/SER/datasets/RAMAS/Audio/Audio_cut/domination_submission/'
-    audio_list = [item for item in os.listdir(source_path) if item.endswith('.wav')]
-    target_path = 'E:/Projects/SER/datasets/RAMAS/Audio/Audio_cut/domination_submission/segmented/'
+def segment_ramas_files(source_path, target_path, len_segment):
+    """
+    Segment long samples of domination and submission samples of RAMAS (in source_path) using ffmpeg.
+    Segmented files will be put into target_path.
+
+    !!!
+    source_path and target_path should be folder strings in Linux style,
+    because they get passed to the cmd.
+    path_to_csvs should be folder string in either Windows or Linux style.
+    """
+    if not os.path.isdir(target_path):
+        os.mkdir(target_path)
+    audio_list = [item for item in os.listdir(source_path)
+                  if (item.endswith('Domination.wav') or item.endswith('Submission.wav'))]
     for in_file in audio_list:
         in_file_path = os.path.join(source_path, in_file)
         print('==============================================')
         print(in_file_path)
-        ffmpeg_string = 'ffmpeg -i {} -f segment -segment_time 2 -c copy {}%03d_{}'.format(
-            in_file_path, target_path, in_file
+        ffmpeg_string = 'ffmpeg -i {} -f segment -segment_time {} -c copy {}%03d_{}'.format(
+            in_file_path, len_segment, target_path, in_file
         )
         os.system(ffmpeg_string)
 
 if __name__ == '__main__':
-    segment_ramas_files()
+    path_to_raw_audio = 'E:/Projects/SER/datasets/RAMAS/testing/'
+    path_to_csvs = 'E:\\Projects\\SER\\datasets\\RAMAS\\Annotations_by_emotions\\'
+
+    path_for_labeled_audio = path_to_raw_audio + 'cut_and_labeled/'
+    path_for_segmented_audio = path_for_labeled_audio + 'segmented/'
+    train_folder = path_for_segmented_audio + 'train/'
+    test_folder = path_for_segmented_audio + 'test/'
+
+    print(path_to_raw_audio)
+    print(path_to_csvs)
+    print(path_for_labeled_audio)
+    print(path_for_segmented_audio)
+    print(train_folder)
+    print(test_folder)
+
+    cut_and_label_ramas_files(source_path=path_to_raw_audio,
+                              target_path=path_for_labeled_audio,
+                              path_to_csvs=path_to_csvs)
+    segment_ramas_files(source_path=path_for_labeled_audio,
+                        target_path=path_for_segmented_audio,
+                        len_segment=4.0)
+    make_train_test_folders(wavs_folder=path_for_segmented_audio,
+                            train_folder_path=train_folder, test_folder_path=test_folder,
+                            test_size=0.2, random_state=RANDOM_SEED, shuffle=True)

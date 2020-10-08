@@ -68,7 +68,7 @@ class IemocapDataset(torch.utils.data.Dataset):
 
     def __init__(self, pickle_path, wavs_path, egemaps_path, path_for_parser,
                  base_name, label_type='original', spectrogram_type='melspec', spectrogram_shape=128,
-                 preprocessing=False, augmentation=False, padding='zero', mode='train', tasks=['emotion']):
+                 preprocessing=False, augmentation=False, padding='zero', mode='train', tasks='emotion'):
         super(IemocapDataset, self).__init__()
         self.name = '{}_{}_prep-{}_{}_{}'.format(
             base_name, label_type, str(preprocessing).lower(), spectrogram_shape, mode)
@@ -419,7 +419,7 @@ class IEMOCAP_Dataset_parser:
             self.datasetPath = Dataset_path
         else:
             assert os.path.lexists(Dataset_path), 'Error:  dataset ' \
-                                                  'path does not exists!'
+                                                  'folder does not exists!'
 
     """
     This method reads the text,audio and evaluation data of IEMOCAP dataset and creates a dictionary.
