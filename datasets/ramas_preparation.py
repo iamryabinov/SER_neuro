@@ -129,8 +129,8 @@ def segment_ramas_files(source_path, target_path, len_segment):
         os.system(ffmpeg_string)
 
 if __name__ == '__main__':
-    path_to_raw_audio = 'E:/Projects/SER/datasets/RAMAS/testing/'
-    path_to_csvs = 'E:\\Projects\\SER\\datasets\\RAMAS\\Annotations_by_emotions\\'
+    path_to_raw_audio = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Data/Audio/'
+    path_to_csvs = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Annotations_by_emotions/'
 
     path_for_labeled_audio = path_to_raw_audio + 'cut_and_labeled/'
     path_for_segmented_audio = path_for_labeled_audio + 'segmented/'
