@@ -31,18 +31,25 @@ class AlexNetMultiTask(nn.Module):
         self.joint_classifier = nn.Sequential(
             nn.Linear(256 * 5 * 5, 2048),
             nn.Dropout(),
-            nn.ReLU(inplace=True),
-            nn.Linear(2048, 512),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=True)
         )
         self.classifier_emotion = nn.Sequential(
-            nn.Linear(512, num_emotions),
+            nn.Linear(2048, 512),
+            nn.Dropout(0.75),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, num_emotions)
         )
         self.classifier_speaker = nn.Sequential(
-            nn.Linear(512, num_speakers),
+            nn.Linear(2048, 512),
+            nn.Dropout(0.75),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, num_speakers)
         )
         self.classifier_gender = nn.Sequential(
-            nn.Linear(512, num_genders),
+            nn.Linear(2048, 512),
+            nn.Dropout(0.75),
+            nn.ReLU(inplace=True),
+            nn.Linear(512, num_genders)
         )
 
     def forward(self, x):
@@ -58,7 +65,7 @@ class AlexNetMultiTask(nn.Module):
 
 if __name__ == '__main__':
     model = AlexNetMultiTask()
-    device = torch.device('cpu')
+    device = torch.device('cuda')
     model = model.to(device)
     x = torch.rand((1, 1, 224, 224))
     print(model(x))

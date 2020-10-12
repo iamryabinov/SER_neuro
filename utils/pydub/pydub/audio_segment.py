@@ -579,9 +579,9 @@ class AudioSegment(object):
             conversion_command += ["-acodec", codec]
 
         conversion_command += [
-            "-i", input_file.name,  # input_file options (filename last)
+            "-i", input_file.name,  # input_file options (path_to_broken_file last)
             "-vn",  # Drop any video streams if there are any
-            "-f", "wav",  # output options (filename last)
+            "-f", "wav",  # output options (path_to_broken_file last)
             output.name
         ]
 
@@ -703,7 +703,7 @@ class AudioSegment(object):
 
         conversion_command += [
             "-vn",  # Drop any video streams if there are any
-            "-f", "wav",  # output options (filename last)
+            "-f", "wav",  # output options (path_to_broken_file last)
             "-"
         ]
 
@@ -847,7 +847,7 @@ class AudioSegment(object):
         conversion_command = [
             self.converter,
             '-y',  # always overwrite existing files
-            "-f", "wav", "-i", data.name,  # input options (filename last)
+            "-f", "wav", "-i", data.name,  # input options (path_to_broken_file last)
         ]
 
         if codec is None:
@@ -894,7 +894,7 @@ class AudioSegment(object):
             conversion_command.extend(["-write_xing", "0"])
 
         conversion_command.extend([
-            "-f", format, output.name,  # output options (filename last)
+            "-f", format, output.name,  # output options (path_to_broken_file last)
         ])
 
         log_conversion(conversion_command)

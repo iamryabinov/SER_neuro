@@ -43,7 +43,7 @@ class TrainingSession():
             for filename in os.listdir(path_to_weights):
                 if checkpoint_file_name in filename:
                     print('Found file')
-                    self.checkpoint_path = self.path_to_weights + filename
+                    self.checkpoint_path = os.path.join(path_to_weights, filename)
                     print('Loading file {}'.format(self.checkpoint_path))
                     epoch, self.results_dict = self.load_ckp()
                     self.current_epoch = epoch + 1
@@ -51,7 +51,7 @@ class TrainingSession():
         except FileNotFoundError:
             print('File not found, starting from scratch...')
             self.current_epoch = 1
-            self.checkpoint_path = self.path_to_weights + checkpoint_file_name
+            self.checkpoint_path = os.path.join(self.path_to_weights, checkpoint_file_name)
             self.results_dict = {}
 
     def load_ckp(self):
@@ -66,8 +66,9 @@ class TrainingSession():
         torch.save(checkpoint, self.checkpoint_path)
         if is_best:
             print('## Saving best model_alex')
-            best_fpath = self.path_to_results + '{}__best_model.pt'.format(self.name)
-            shutil.copyfile(self.checkpoint_path, best_fpath)
+            filename = '{}__best_model.pt'.format(self.name)
+            best_fpath = os.path.join(self.path_to_results, filename)
+            shutil.copy2(self.checkpoint_path, best_fpath)
 
     def execute(self):
 
@@ -153,6 +154,7 @@ class TrainingSession():
                 loss_speaker = criterion(predicted_speaker, target_speaker)
                 loss_gender = criterion(predicted_gender, target_gender)
                 loss_total = loss_emotion + loss_speaker + loss_gender
+
                 loss_total.backward()  # compute gradient tensors
 
                 optimizer.step()  # update parameters
@@ -175,6 +177,7 @@ class TrainingSession():
             epoch_loss_emotion /= dataset_size
             epoch_loss_gender /= dataset_size
             epoch_loss_speaker /= dataset_size
+            epoch_loss_total /= dataset_size
 
             train_acc_emotion = correct_emotion / total
             train_acc_speaker = correct_speaker / total
@@ -303,7 +306,7 @@ class TrainingSession():
             val_loss_emotion /= dataset_size
             val_loss_gender /= dataset_size
             val_loss_speaker /= dataset_size
-            val_loss_total += loss_total.item() * data.size(0)
+            val_loss_total /= dataset_size
 
             val_acc_emotion = correct_emotion / total
             val_acc_speaker = correct_speaker / total
@@ -317,9 +320,12 @@ class TrainingSession():
     def overfit_one_batch(self, num_epochs=100, batch_size=10):
         model = self.model
         model.to(self.device)
+        trainloader, _ = train_test_loaders(self.train_dataset, batch_size=batch_size)
+        first_batch = next(iter(trainloader))
         for epoch_num in range(num_epochs):
             print('======================================================================')
-            print('Epoch #%d' % epoch_num)
+            print('Epoch {}'.format(epoch_num))
+            print('Emotion loss | Speaker loss | Gender loss | Total loss')
             epoch_loss_emotion = 0.0
             epoch_loss_speaker = 0.0
             epoch_loss_gender = 0.0
@@ -327,8 +333,6 @@ class TrainingSession():
             t0 = time.time()
             self.model.train()
             t0 = time.time()
-            trainloader, _ = train_test_loaders(self.train_dataset, batch_size=batch_size)
-            first_batch = next(iter(trainloader))
             dataset_size = batch_size * 50
             total = 0
             correct_emotion = 0
@@ -347,6 +351,7 @@ class TrainingSession():
                 loss_speaker = self.criterion(predicted_speaker, target_speaker)
                 loss_gender = self.criterion(predicted_gender, target_gender)
                 loss_total = loss_emotion + loss_speaker + loss_gender
+                print('{}: {} | {} | {} | {}'.format(batch_idx, loss_emotion, loss_speaker, loss_gender, loss_total))
                 loss_total.backward()  # compute gradient tensors
 
                 self.optimizer.step()  # update parameters

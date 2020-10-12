@@ -26,7 +26,7 @@ def get_paths_to_wavs(path_to_dataset_wavs):
 
 def get_emotion_label(file_path):
     """
-    Parse the filename, return emotion label
+    Parse the path_to_broken_file, return emotion label
     """
     file_name = os.path.split(file_path)[1]
     file_name = file_name[:-4]

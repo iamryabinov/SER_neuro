@@ -21,7 +21,7 @@ if __name__ == '__main__':
     test_dataset = iemocap_224_noprep_test
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.Adam(params=model.parameters())
-    device = torch.device('cpu')
+    device = torch.device('cuda')
     ts = TrainingSession(name='FirstTry',
                          model=model,
                          train_dataset=train_dataset,
@@ -34,5 +34,7 @@ if __name__ == '__main__':
                          path_to_weights=WEIGHTS_FOLDER,
                          path_to_results=RESULTS_FOLDER)
 
-    ts.overfit_one_batch(100, 100)
+
+    # ts.overfit_one_batch(100, 25)
+    ts.execute()
 
