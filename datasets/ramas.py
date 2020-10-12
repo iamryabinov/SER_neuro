@@ -35,9 +35,19 @@ def get_paths_to_wavs(path_to_dataset_wavs):
 
 
 class RamasDataset(torch.utils.data.Dataset):
+
     emotions_dict = {
         'Domination': 0,
         'Submission': 1,
+        'Angry': 0,
+        'Disgusted': 1,
+        'Happy': 2,
+        'Neutral': 3,
+        'Sad emotion': 4,
+        'Scared': 5,
+        'Shame': 6,
+        'Surprised': 7,
+        'Tiredness': 8
     }
 
     speakers_dict = {
@@ -72,7 +82,7 @@ class RamasDataset(torch.utils.data.Dataset):
 
     def __init__(self, wavs_path, base_name,
                  spectrogram_shape=128,
-                 augmentation=False, padding='zero', mode='train', tasks='emotion'):
+                 augmentation=False, padding='zero', mode='train', emotions=('Domination', 'Submission'), tasks='emotion'):
         super(RamasDataset, self).__init__()
         self.name = '{}_{}_{}'.format(
             base_name, spectrogram_shape, mode)
@@ -83,11 +93,24 @@ class RamasDataset(torch.utils.data.Dataset):
         self.padding = padding
         self.augmentation = augmentation
         self.folder = os.path.join(wavs_path, mode)
+        self.emotions = emotions
         if not os.path.exists(self.folder):
             raise OSError('Path not found!')
-        self.paths_to_wavs, _ = get_paths_to_wavs(self.folder)
+        self.paths_to_wavs, _ = self.get_paths_to_wavs(self.folder)
         print('============================ SUCCESS! =========================')
 
+    def get_paths_to_wavs(self, path_to_dataset_wavs):
+        file_paths_list = []
+        noise_file_path = ''
+        for root, _dirs, files in os.walk(path_to_dataset_wavs):  # Iterate over files in directory
+            for f in files:
+                if f.endswith('.wav'):
+                    for emotion in self.emotions:
+                        if emotion in f:
+                            file_paths_list.append(os.path.join(root, f))
+        if not file_paths_list:
+            raise FileNotFoundError('Returned empty list!')
+        return file_paths_list, noise_file_path
 
     def read_audio(self, path_to_wav):
         """
@@ -102,6 +125,7 @@ class RamasDataset(torch.utils.data.Dataset):
         _, date, _, speaker_id, _, emotion = file_name.split('_')
         speaker = date + speaker_id
         gender = date + speaker_id
+        emotion = self.emotions_dict[emotion]
         speaker = self.speakers_dict[speaker]
         gender = self.speakers_dict[gender]
         return emotion, speaker, gender
@@ -122,6 +146,7 @@ class RamasDataset(torch.utils.data.Dataset):
             spec = self.unify_size(spec)
         else:
             raise ValueError('Unknown value for mode: should be either "train" or "test"!')
+        print(f'{idx + 1}/{self.__len__()} || {path_to_item}: {spec.shape}')
         img = scale_minmax(spec, 0, 255).astype(np.uint8)  # min-max scale to fit inside 8-bit range
         img = np.flip(img, axis=0)  # put low frequencies at the bottom in image
         img_shape = self.spectrogram_shape
@@ -132,9 +157,10 @@ class RamasDataset(torch.utils.data.Dataset):
         ])
         img = normalize_image(img)
         data = img
-        # emotion, speaker, gender = self.get_labels(path_to_item)
-        filename = self.get_labels(path_to_item)
-        return data, filename
+        emotion, speaker, gender = self.get_labels(path_to_item)
+        # labels = emotion, speaker, gender
+        labels = emotion
+        return data, labels
 
     def make_spectrogram(self, wav):
         """

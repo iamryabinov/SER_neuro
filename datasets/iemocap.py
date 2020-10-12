@@ -217,7 +217,7 @@ class IemocapDataset(torch.utils.data.Dataset):
 
     def get_emotion_label(self, file_name):
         """
-        Parse the filename, return emotion label
+        Parse the path_to_broken_file, return emotion label
         """
         file_name = file_name[:-4]
         emotion_name = file_name.split('_')[-1]  # the last is a position of emotion code
