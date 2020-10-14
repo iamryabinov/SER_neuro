@@ -43,6 +43,9 @@ for i in range(len(train_dataset_descrete)):
         print('!!!{} was broken, appended to list... Found total {} broken files so far...'
               .format(path_to_broken_file, len(broken_paths)))
         print('----------------------------------------')
+print('Found total {} broken files!'.format(len(broken_paths)))
+with open('broken_files.pkl', 'wb') as f:
+    pickle.dump(broken_paths, f)
 
 for i in range(len(test_dataset_descrete)):
     try:
@@ -54,29 +57,34 @@ for i in range(len(test_dataset_descrete)):
         print('!!!{} was broken, appended to list... Found total {} broken files so far...'
               .format(path_to_broken_file, len(broken_paths)))
         print('----------------------------------------')
+print('Found total {} broken files!'.format(len(broken_paths)))
+with open('broken_files.pkl', 'wb') as f:
+    pickle.dump(broken_paths, f)
         
 for i in range(len(train_dataset_dom_sub)):
     try:
         spec, labels = train_dataset_dom_sub[i]
     except ValueError:
-        path_to_broken_file = train_dataset.paths_to_wavs_dom_sub[i]
+        path_to_broken_file = train_dataset_dom_sub.paths_to_wavs[i]
         broken_paths.append(path_to_broken_file)
         print('----------------------------------------')
         print('!!!{} was broken, appended to list... Found total {} broken files so far...'
               .format(path_to_broken_file, len(broken_paths)))
         print('----------------------------------------')
+print('Found total {} broken files!'.format(len(broken_paths)))
+with open('broken_files.pkl', 'wb') as f:
+    pickle.dump(broken_paths, f)
 
 for i in range(len(test_dataset_dom_sub)):
     try:
         spec, labels = test_dataset_dom_sub[i]
     except ValueError:
-        path_to_broken_file = test_dataset.paths_to_wavs_dom_sub[i]
+        path_to_broken_file = test_dataset_dom_sub.paths_to_wavs[i]
         broken_paths.append(path_to_broken_file)
         print('----------------------------------------')
         print('!!!{} was broken, appended to list... Found total {} broken files so far...'
               .format(path_to_broken_file, len(broken_paths)))
         print('----------------------------------------')
-
 print('Found total {} broken files!'.format(len(broken_paths)))
 with open('broken_files.pkl', 'wb') as f:
     pickle.dump(broken_paths, f)
