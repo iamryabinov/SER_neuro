@@ -131,15 +131,20 @@ def segment_ramas_files(source_path, target_path, len_segment):
         os.system(ffmpeg_string)
 
 if __name__ == '__main__':
-    path_to_raw_audio = '/media/aggr/DATA/RAMAS/RAMAS/Data/Audio/'
-    path_to_csvs = '/media/aggr/DATA/RAMAS/RAMAS/Annotations_by_emotions/'
+
+    path_to_raw_audio = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Data/Audio/'
+    path_to_csvs = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/'
+
+
+    # path_to_raw_audio = '/media/aggr/DATA/RAMAS/RAMAS/Data/Audio/'
+    # path_to_csvs = '/media/aggr/DATA/RAMAS/RAMAS/Annotations_by_emotions/'
 
 #     path_to_raw_audio = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Data/Audio/'
 #     path_to_csvs = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Annotations_by_emotions/'
 
 
-    path_for_labeled_audio = path_to_raw_audio + 'cut_and_labeled/'
 
+    path_for_labeled_audio = path_to_raw_audio + 'cut_and_labeled/'
     path_for_audio_with_domination_submission = path_for_labeled_audio + 'domination_submission/'
     path_for_segmented_domination_submission = path_for_audio_with_domination_submission + 'segmented/'
     domination_submission_train = path_for_segmented_domination_submission + 'train/'
@@ -159,7 +164,6 @@ if __name__ == '__main__':
     cut_and_label_ramas_files(source_path=path_to_raw_audio,
                               target_path=path_for_labeled_audio,
                               path_to_csvs=path_to_csvs)
-
     copy_needed_files(path_for_labeled_audio, path_for_audio_with_domination_submission)
     segment_ramas_files(source_path=path_for_audio_with_domination_submission,
                         target_path=path_for_segmented_domination_submission,
