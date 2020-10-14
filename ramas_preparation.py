@@ -64,12 +64,15 @@ def make_train_test_folders(wavs_folder, train_folder_path, test_folder_path, **
         print("{}/{}".format(i + 1, len(X_test)))
         shutil.copy2(file, test_folder_path)
 
-def copy_domination_submission_files(in_path, out_path):
-    """Parse folder with labeled files (in_path), copy only domination and submission samples into out_path"""
+def copy_needed_files(in_path, out_path, needed_labels=('Domination', 'Submission')):
+    """Parse folder with labeled files (in_path), copy only needed samples into out_path"""
+    if not os.path.exists(out_path):
+        os.mkdir(out_path)
     for file in os.listdir(in_path):
-        if file.endswith('Domination.wav') or file.endswith('Submission.wav'):
-            shutil.copy2(os.path.join(in_path, file), out_path)
-            print('Copied {}'.format(file))
+        for label in needed_labels:
+            if label in file:
+                shutil.copy2(os.path.join(in_path, file), out_path)
+                print('Copied {}'.format(file))
 
 def cut_and_label_ramas_files(source_path, path_to_csvs, target_path):
     """
@@ -83,16 +86,15 @@ def cut_and_label_ramas_files(source_path, path_to_csvs, target_path):
     because they get passed to the cmd.
     path_to_csvs should be folder string in either Windows or Linux style.
     """
-    print('Preparing to cut and label ramas files')
     audio_list = [item for item in os.listdir(source_path) if item.endswith('.wav')]
     if not os.path.isdir(target_path):
         os.mkdir(target_path)
-    csvs_list = [item for item in os.listdir(path_to_csvs)
-                 if (item.endswith('Domination.csv') or item.endswith('Submission.csv'))]
-    # csvs_list = [item for item in os.listdir(path_to_csvs) if (item.endswith('.csv') and 'labeled' not in item)]
+    # csvs_list = [item for item in os.listdir(path_to_csvs)
+    #              if (item.endswith('Domination.csv') or item.endswith('Submission.csv'))]
+    csvs_list = [item for item in os.listdir(path_to_csvs) if (item.endswith('.csv') and 'labeled' not in item)]
     for csv_name in csvs_list:
         path_to_csv = os.path.join(path_to_csvs, csv_name)
-        df = pd.read_csv(path_to_csv, delimiter=',')
+        df = pd.read_csv(path_to_csv, delimiter=';')
         class_name = csv_name[:-4].split('_')[1]
         for idx, row in tqdm(df.iterrows()):
             in_file_name = row['File']
@@ -108,7 +110,7 @@ def cut_and_label_ramas_files(source_path, path_to_csvs, target_path):
 
 def segment_ramas_files(source_path, target_path, len_segment):
     """
-    Segment long samples of domination and submission samples of RAMAS (in source_path) using ffmpeg.
+    Segment long samples of RAMAS (in source_path) using ffmpeg.
     Segmented files will be put into target_path.
 
     !!!
@@ -118,8 +120,7 @@ def segment_ramas_files(source_path, target_path, len_segment):
     """
     if not os.path.isdir(target_path):
         os.mkdir(target_path)
-    audio_list = [item for item in os.listdir(source_path)
-                  if (item.endswith('Domination.wav') or item.endswith('Submission.wav'))]
+    audio_list = [item for item in os.listdir(source_path) if item.endswith('wav')]
     for in_file in audio_list:
         in_file_path = os.path.join(source_path, in_file)
         print('==============================================')
@@ -130,27 +131,51 @@ def segment_ramas_files(source_path, target_path, len_segment):
         os.system(ffmpeg_string)
 
 if __name__ == '__main__':
-    path_to_raw_audio = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Data/Audio/'
-    path_to_csvs = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Annotations_by_emotions/'
+    path_to_raw_audio = '/media/aggr/DATA/RAMAS/RAMAS/Data/Audio/'
+    path_to_csvs = '/media/aggr/DATA/RAMAS/RAMAS/Annotations_by_emotions/'
+
+#     path_to_raw_audio = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Data/Audio/'
+#     path_to_csvs = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Annotations_by_emotions/'
+
 
     path_for_labeled_audio = path_to_raw_audio + 'cut_and_labeled/'
-    path_for_segmented_audio = path_for_labeled_audio + 'segmented/'
-    train_folder = path_for_segmented_audio + 'train/'
-    test_folder = path_for_segmented_audio + 'test/'
 
-    print(path_to_raw_audio)
-    print(path_to_csvs)
-    print(path_for_labeled_audio)
-    print(path_for_segmented_audio)
-    print(train_folder)
-    print(test_folder)
+    path_for_audio_with_domination_submission = path_for_labeled_audio + 'domination_submission/'
+    path_for_segmented_domination_submission = path_for_audio_with_domination_submission + 'segmented/'
+    domination_submission_train = path_for_segmented_domination_submission + 'train/'
+    domination_submission_test = path_for_segmented_domination_submission + 'test/'
+
+    path_for_audio_with_descrete_labels = path_for_labeled_audio + 'descrete_labels/'
+    path_for_segmented_descrete_labels = path_for_audio_with_descrete_labels + 'segmented/'
+    descrete_labels_train = path_for_segmented_descrete_labels + 'train/'
+    descrete_labels_test = path_for_segmented_descrete_labels + 'test/'
+
+    path_for_audio_with_ekman_labels = path_for_labeled_audio + 'ekman_labels/'
+    path_for_segmented_ekman_labels = path_for_audio_with_ekman_labels + 'segmented/'
+    ekman_labels_train = path_for_segmented_domination_submission + 'train/'
+    ekman_labels_test = path_for_segmented_domination_submission + 'test/'
+
 
     cut_and_label_ramas_files(source_path=path_to_raw_audio,
                               target_path=path_for_labeled_audio,
                               path_to_csvs=path_to_csvs)
-    segment_ramas_files(source_path=path_for_labeled_audio,
-                        target_path=path_for_segmented_audio,
+
+    copy_needed_files(path_for_labeled_audio, path_for_audio_with_domination_submission)
+    segment_ramas_files(source_path=path_for_audio_with_domination_submission,
+                        target_path=path_for_segmented_domination_submission,
                         len_segment=4.0)
-    make_train_test_folders(wavs_folder=path_for_segmented_audio,
-                            train_folder_path=train_folder, test_folder_path=test_folder,
+    make_train_test_folders(wavs_folder=path_for_segmented_domination_submission,
+                            train_folder_path=domination_submission_train,
+                            test_folder_path=domination_submission_test,
+                            test_size=0.2, random_state=RANDOM_SEED, shuffle=True)
+
+    copy_needed_files(path_for_labeled_audio, path_for_audio_with_descrete_labels,
+                      needed_labels=('Angry', 'Disgusted', 'Happy', 'Neutral',
+                                     'Sad emotion', 'Scared', 'Shame', 'Surprised', 'Tiredness'))
+    segment_ramas_files(source_path=path_for_audio_with_descrete_labels,
+                        target_path=path_for_segmented_descrete_labels,
+                        len_segment=4.0)
+    make_train_test_folders(wavs_folder=path_for_segmented_descrete_labels,
+                            train_folder_path=descrete_labels_train,
+                            test_folder_path=descrete_labels_test,
                             test_size=0.2, random_state=RANDOM_SEED, shuffle=True)
