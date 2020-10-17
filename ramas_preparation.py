@@ -94,7 +94,7 @@ def cut_and_label_ramas_files(source_path, path_to_csvs, target_path):
     csvs_list = [item for item in os.listdir(path_to_csvs) if (item.endswith('.csv') and 'labeled' not in item)]
     for csv_name in csvs_list:
         path_to_csv = os.path.join(path_to_csvs, csv_name)
-        df = pd.read_csv(path_to_csv, delimiter=';')
+        df = pd.read_csv(path_to_csv, delimiter=',')
         class_name = csv_name[:-4].split('_')[1]
         for idx, row in tqdm(df.iterrows()):
             in_file_name = row['File']
@@ -133,7 +133,7 @@ def segment_ramas_files(source_path, target_path, len_segment):
 if __name__ == '__main__':
 
     path_to_raw_audio = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Data/Audio/'
-    path_to_csvs = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/'
+    path_to_csvs = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Annotations_by_emotions/'
 
 
     # path_to_raw_audio = '/media/aggr/DATA/RAMAS/RAMAS/Data/Audio/'
