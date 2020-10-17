@@ -11,10 +11,42 @@ from models.models_one_task import *
 from torch.utils.data import DataLoader
 
 
+def unweighted_sum(loss_1, loss_2, loss_3=0):
+    return loss_1 + loss_2 + loss_3
+
+def averaged_sum(loss_1, loss_2, loss_3=0):
+    a = loss_1 / unweighted_sum(loss_1, loss_2, loss_3)
+    b = loss_2 / unweighted_sum(loss_1, loss_2, loss_3)
+    c = loss_3 / unweighted_sum(loss_1, loss_2, loss_3)
+    return a*loss_1 + b*loss_2 + c*loss_3
+
+class AutomaticWeightedLoss(nn.Module):
+    """automatically weighted multi-task loss
+
+    Params：
+        num: int，the number of loss
+        x: multi-task loss
+    Examples：
+        loss1=1
+        loss2=2
+        awl = AutomaticWeightedLoss(2)
+        loss_sum = awl(loss1, loss2)
+    """
+    def __init__(self, num=2):
+        super(AutomaticWeightedLoss, self).__init__()
+        params = torch.ones(num, requires_grad=True)
+        self.params = torch.nn.Parameter(params)
+
+    def forward(self, *x):
+        loss_sum = 0
+        for i, loss in enumerate(x):
+            loss_sum += 0.5 / (self.params[i] ** 2) * loss + torch.log(1 + self.params[i] ** 2)
+        return loss_sum
+
 class TrainingSession():
     def __init__(self, name, model, train_dataset,
                  criterion, optimizer, num_epochs, batch_size, device,
-                 path_to_weights, path_to_results, test_dataset=None, ):
+                 path_to_weights, path_to_results, test_dataset=None, loss_weighter=unweighted_sum):
         print('INITIALIZING TRAINING SESSION...')
         self.model = model
         self.train_dataset = train_dataset
@@ -27,6 +59,7 @@ class TrainingSession():
         self.device = device
         self.criterion = criterion
         self.name = '{}__{}'.format(name, self.train_dataset.name)
+        self.loss_weighter = loss_weighter
         if self.test_dataset == None:
             self.trainloader, self.testloader = train_test_loaders(self.train_dataset, validation_ratio=0.2,
                                                                    num_workers=4, batch_size=self.batch_size)
@@ -153,7 +186,7 @@ class TrainingSession():
                 loss_emotion = criterion(predicted_emotion, target_emotion)  # compute loss
                 loss_speaker = criterion(predicted_speaker, target_speaker)
                 loss_gender = criterion(predicted_gender, target_gender)
-                loss_total = loss_emotion + loss_speaker + loss_gender
+                loss_total = self.loss_weighter(loss_emotion, loss_speaker, loss_gender)
 
                 loss_total.backward()  # compute gradient tensors
 
@@ -287,7 +320,7 @@ class TrainingSession():
                 loss_emotion = self.criterion(predicted_emotion, target_emotion)  # compute loss
                 loss_speaker = self.criterion(predicted_speaker, target_speaker)
                 loss_gender = self.criterion(predicted_gender, target_gender)
-                loss_total = loss_emotion + loss_speaker + loss_gender
+                loss_total = self.loss_weighter(loss_emotion, loss_speaker, loss_gender)
 
                 val_loss_emotion += loss_emotion.item() * data.size(0)
                 val_loss_speaker += loss_speaker.item() * data.size(0)
@@ -350,7 +383,7 @@ class TrainingSession():
                 loss_emotion = self.criterion(predicted_emotion, target_emotion)  # compute loss
                 loss_speaker = self.criterion(predicted_speaker, target_speaker)
                 loss_gender = self.criterion(predicted_gender, target_gender)
-                loss_total = loss_emotion + loss_speaker + loss_gender
+                loss_total = self.loss_weighter(loss_emotion, loss_speaker, loss_gender)
                 print('{}: {} | {} | {} | {}'.format(batch_idx, loss_emotion, loss_speaker, loss_gender, loss_total))
                 loss_total.backward()  # compute gradient tensors
 
@@ -385,6 +418,24 @@ class TrainingSession():
             print('# Train accuracies | emotion = {} | speaker = {} | gender = {} |'.format(
                 train_acc_emotion, train_acc_speaker, train_acc_gender
             ))
+
+    def create_results_file(self):
+        dfs_list = []
+        num_epochs = len(self.results_dict['emotion']['train accuracy'])
+        for task in self.train_dataset.tasks:
+            _dfs_list = []
+            for key in self.results_dict[task].keys():
+                subset, metric = key.split(' ')
+                df = pd.DataFrame(self.results_dict[task][key], columns=['result'])
+                df['subset'] = subset
+                df['metric'] = metric
+                df['epoch'] = np.arange(1, num_epochs + 1)
+                _dfs_list.append(df)
+            df = pd.concat(_dfs_list, ignore_index=True)
+            df['task'] = task
+            dfs_list.append(df)
+        final_df = pd.concat(dfs_list, ignore_index=True)
+        final_df.to_csv(os.path.join(self.path_to_results, f'{self.name}_results.csv'), sep=';', index=False)
 
 
 if __name__ == '__main__':
