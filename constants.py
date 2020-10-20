@@ -10,8 +10,8 @@
 # RAMAS_PATH_TO_WAVS_DOM_SUB = 'E:\\Projects\\SER\\datasets\\RAMAS\\Audio\\cut_and_labeled\\domination_submission\\segmented\\'
 # RAMAS_PATH_TO_WAVS_DESCRETE = 'E:\\Projects\\SER\\datasets\\RAMAS\\Audio\\cut_and_labeled\\descrete_labels\\segmented\\'
 
-RAMAS_PATH_TO_WAVS_DOM_SUB = '/media/aggr/DATA/RAMAS/RAMAS/Data/Audio/cut_and_labeled/domination_submission/segmented'
-RAMAS_PATH_TO_WAVS_DESCRETE = '/media/aggr/DATA/RAMAS/RAMAS/Data/Audio/cut_and_labeled/descrete_labels/segmented'
+RAMAS_PATH_TO_WAVS_DOM_SUB = '/media/aggr/DATA/RAMAS/RAMAS/Data/Audio/cut_and_labeled/domination_submission/segmented/'
+RAMAS_PATH_TO_WAVS_DESCRETE = '/media/aggr/DATA/RAMAS/RAMAS/Data/Audio/cut_and_labeled/descrete_labels/segmented/'
 
 
 IEMOCAP_PATH_TO_WAVS = 'E:\\Projects\\SER\\datasets\\IEMOCAP_full_release\\iemocap_audios\\'
