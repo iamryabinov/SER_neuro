@@ -16,25 +16,5 @@ if __name__ == '__main__':
         augmentation=False, padding='repeat', spectrogram_shape=224, spectrogram_type='melspec',
         tasks=('emotion', 'speaker', 'gender')
     )
-    model = AlexNetMultiTask(4, 10, 2)
-    train_dataset = iemocap_224_noprep_train
-    test_dataset = iemocap_224_noprep_test
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(params=model.parameters())
-    device = torch.device('cuda')
-    ts = TrainingSession(name='FirstTry',
-                         model=model,
-                         train_dataset=train_dataset,
-                         test_dataset=test_dataset,
-                         criterion=criterion,
-                         optimizer=optimizer,
-                         num_epochs=100,
-                         batch_size=32,
-                         device=device,
-                         path_to_weights=WEIGHTS_FOLDER,
-                         path_to_results=RESULTS_FOLDER)
-
-
-    # ts.overfit_one_batch(100, 25)
-    ts.execute()
+    print(len(iemocap_224_noprep_train) + len(iemocap_224_noprep_test))
 

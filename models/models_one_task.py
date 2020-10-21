@@ -671,18 +671,27 @@ def wide_resnet101_2(pretrained=False, progress=True, **kwargs):
     return _resnet('wide_resnet101_2', Bottleneck, [3, 4, 23, 3],
                    pretrained, progress, **kwargs)
 
+class EgemapsPerceptron(nn.Module):
+
+    def __init__(self, num_classes=4):
+        super(EgemapsPerceptron, self).__init__()
+
+
+        self.classifier = nn.Sequential(
+            nn.Linear(88, 256),
+            nn.ReLU(inplace=True),
+            nn.Linear(256, 256),
+            nn.ReLU(inplace=True),
+            nn.Dropout(),
+            nn.Linear(256, 32),
+            nn.ReLU(inplace=True),
+            nn.Linear(32, num_classes)
+        )
+
+    def forward(self, x):
+        x = self.classifier(x)
+        return x
 
 
 if __name__ == '__main__':
-    # model = vgg(4, 11, bn=False)
-    # summary(model, (1, 224, 224), device='cpu')
-    # model = vgg(4, 11, bn=True)
-    # summary(model, (1, 224, 224), device='cpu')
-    model = vgg(4, 19, bn=True)
-    summary(model, (1, 224, 224), device='cpu')
-    # # model = alexnet(pretrained=False, progress=False, num_classes=4)
-    # # summary(model, (1, 224, 224), device='cpu')
-    # model = PaperCnnStrideNet(4)
-    # summary(model, (1, 128, 128))
-    # model = PaperCnnDeepNet(4)
-    # summary(model, (1, 64, 64))
+    pass

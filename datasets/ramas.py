@@ -146,7 +146,7 @@ class RamasDataset(torch.utils.data.Dataset):
             spec = self.unify_size(spec)
         else:
             raise ValueError('Unknown value for mode: should be either "train" or "test"!')
-        print(f'{idx + 1}/{self.__len__()} || {path_to_item}: {spec.shape}')
+#         print(f'{idx + 1}/{self.__len__()} || {path_to_item}: {spec.shape}')
         img = scale_minmax(spec, 0, 255).astype(np.uint8)  # min-max scale to fit inside 8-bit range
         img = np.flip(img, axis=0)  # put low frequencies at the bottom in image
         img_shape = self.spectrogram_shape

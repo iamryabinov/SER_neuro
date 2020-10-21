@@ -1,7 +1,7 @@
 /.idea/
 /datasets/**/
 /bkp/
-/models/**/
+/models/**/**.md
 /__pycache__/
 /utils/**/
 /**/.ipynb_checkpoints/
