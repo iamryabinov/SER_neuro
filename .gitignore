@@ -1,5 +1,5 @@
 /.idea/
-/datasets/**.pkl
+/datasets/**/
 /bkp/
 /models/**/
 /__pycache__/
