@@ -81,6 +81,9 @@ class TrainingSession():
                     epoch, self.results_dict = self.load_ckp()
                     self.current_epoch = epoch + 1
                     print('Success!')
+                    break
+            else:
+                raise FileNotFoundError
         except FileNotFoundError:
             print('File not found, starting from scratch...')
             self.current_epoch = 1
