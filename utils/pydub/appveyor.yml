@@ -27,4 +27,4 @@ install:
   # check ffmpeg installation (also shows version)
   - "ffmpeg.exe -version"
 test_script:
-  - "%PYTHON%/python.exe test/test.py"
+  - "%PYTHON%/python.exe test/egemaps_perceptron.py"

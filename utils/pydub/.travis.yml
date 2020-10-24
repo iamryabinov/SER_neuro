@@ -13,6 +13,6 @@ python:
   - "pypy2"
   - "pypy3"
 script:
-  - python test/test.py
+  - python test/egemaps_perceptron.py
 after_script:
   - pip install pylama && python -m pylama -i W,E501 pydub/ || true
