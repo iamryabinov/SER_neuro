@@ -164,8 +164,8 @@ class RamasDataset(torch.utils.data.Dataset):
 
     def make_spectrogram(self, wav):
         """
-        Create an ordinary or mel-scaled spectrogram, given vaw (y, sr).
-        self.spectrogram_type states if ordinary or mel spectrogram will be created.
+        Create an ordinary or mel-scaled x1, given vaw (y, sr).
+        self.spectrogram_type states if ordinary or mel x1 will be created.
         All spectrograms are log(dB)-scaled and min-max normalized.
         In order to keep the shape constant, random cropping or zero-padding is performed.
         """
@@ -178,7 +178,7 @@ class RamasDataset(torch.utils.data.Dataset):
     def augment(self, spec):
         """
         Random augmentation of short spectrograms: random zero-padding or random cropping.
-        Makes the spectrogram square-shaped
+        Makes the x1 square-shaped
         :param spec:
         :return:
         """
@@ -211,7 +211,7 @@ class RamasDataset(torch.utils.data.Dataset):
                 if self.padding == 'zero':  # Random zero-pad
                     spec = self.zero_pad(spec)
                     diff = spec.shape[1] - desired_shape
-                elif self.padding == 'repeat':  # Pad spectrogram with itself
+                elif self.padding == 'repeat':  # Pad x1 with itself
                     spec = self.repeat(spec, 2)
                     diff = spec.shape[1] - desired_shape
                 else:

@@ -69,7 +69,7 @@ class IemocapDataset(torch.utils.data.Dataset):
     def __init__(self, pickle_path, wavs_path, egemaps_path, path_for_parser,
                  base_name, label_type='original', spectrogram_type='melspec', spectrogram_shape=128,
                  preprocessing=False, augmentation=False, padding='zero', mode='train', tasks='emotion',
-                 channels='grayscale'):
+                 channels='grayscale', egemaps=False):
         super(IemocapDataset, self).__init__()
         self.name = '{}_{}_prep-{}_{}_{}'.format(
             base_name, label_type, str(preprocessing).lower(), spectrogram_shape, mode)
@@ -83,6 +83,7 @@ class IemocapDataset(torch.utils.data.Dataset):
         self.padding = padding
         self.augmentation = augmentation
         self.channels = channels
+        self.egemaps = egemaps
         path = os.path.join(wavs_path, mode)
         pkl_path = '{}{}.pkl'.format(pickle_path, self.name)
         try:
@@ -174,7 +175,7 @@ class IemocapDataset(torch.utils.data.Dataset):
             print('Preprocessing...')
             y, sr = self.preprocess(y, sr)
         file_name = os.path.split(file_path)[1]
-        print('Making spectrogram...')
+        print('Making x1...')
         spec = self.make_spectrogram((y, sr))
         print('Extracting egemaps...')
         egemaps = self.get_egemaps(file_name)
@@ -183,7 +184,7 @@ class IemocapDataset(torch.utils.data.Dataset):
         emotion = self.get_emotion_label(file_name)
         files_dict = {
             'name': file_name,
-            'spectrogram': spec,
+            'x1': spec,
             'egemaps': egemaps,
             'speaker': speaker,
             'gender': gender,
@@ -288,8 +289,16 @@ class IemocapDataset(torch.utils.data.Dataset):
             else:
                 raise ValueError('Unknown value for "channels"! (grayscale, rgb, delta)')
         img = normalize_image(img)
-        data = img
 
+        if self.egemaps:
+            egemaps = np.squeeze(file_instance['egemaps'])
+            egemaps = torch.from_numpy(egemaps).float()
+            data = {
+                'spectrogram': img,
+                'egemaps': egemaps
+            }
+        else:
+            data = img
 
         if self.tasks == 'emotion':
             emotion = self.emotions_dict[file_instance['emotion']]
@@ -316,11 +325,10 @@ class IemocapDataset(torch.utils.data.Dataset):
             raise ValueError('Unresolved tasks value!')
         return data, target
 
-                      
     def make_spectrogram(self, wav):
         """
-        Create an ordinary or mel-scaled spectrogram, given vaw (y, sr).
-        self.spectrogram_type states if ordinary or mel spectrogram will be created.
+        Create an ordinary or mel-scaled x1, given vaw (y, sr).
+        self.spectrogram_type states if ordinary or mel x1 will be created.
         All spectrograms are log(dB)-scaled and min-max normalized.
         In order to keep the shape constant, random cropping or zero-padding is performed.
         """
@@ -353,7 +361,7 @@ class IemocapDataset(torch.utils.data.Dataset):
     def augment(self, spec):
         """
         Random augmentation of short spectrograms: random zero-padding or random cropping.
-        Makes the spectrogram square-shaped
+        Makes the x1 square-shaped
         :param spec:
         :return:
         """
@@ -386,7 +394,7 @@ class IemocapDataset(torch.utils.data.Dataset):
                 if self.padding == 'zero':  # Random zero-pad
                     spec = self.zero_pad(spec)
                     diff = spec.shape[1] - desired_shape
-                elif self.padding == 'repeat':  # Pad spectrogram with itself
+                elif self.padding == 'repeat':  # Pad x1 with itself
                     spec = self.repeat(spec, 2)
                     diff = spec.shape[1] - desired_shape
                 else:
@@ -428,10 +436,6 @@ class IemocapDataset(torch.utils.data.Dataset):
         img = np.squeeze(img, axis=0)
         ax = plt.imshow(img, **kwargs)
         return ax
-
-
-
-
 
 
 """
@@ -722,9 +726,7 @@ class RemoveSilence:
             nonsilent_part = y[beginning: end]
             nonsilent_y = np.concatenate((nonsilent_y, nonsilent_part))
         return nonsilent_y, sr
-    
 
-    
 
 def train_test_loaders(dataset, validation_ratio=0.2, **kwargs):
     """
