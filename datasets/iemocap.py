@@ -68,7 +68,8 @@ class IemocapDataset(torch.utils.data.Dataset):
 
     def __init__(self, pickle_path, wavs_path, egemaps_path, path_for_parser,
                  base_name, label_type='original', spectrogram_type='melspec', spectrogram_shape=128,
-                 preprocessing=False, augmentation=False, padding='zero', mode='train', tasks='emotion'):
+                 preprocessing=False, augmentation=False, padding='zero', mode='train', tasks='emotion',
+                 channels='grayscale'):
         super(IemocapDataset, self).__init__()
         self.name = '{}_{}_prep-{}_{}_{}'.format(
             base_name, label_type, str(preprocessing).lower(), spectrogram_shape, mode)
@@ -81,6 +82,7 @@ class IemocapDataset(torch.utils.data.Dataset):
         self.tasks = tasks
         self.padding = padding
         self.augmentation = augmentation
+        self.channels = channels
         path = os.path.join(wavs_path, mode)
         pkl_path = '{}{}.pkl'.format(pickle_path, self.name)
         try:
@@ -242,6 +244,7 @@ class IemocapDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         file_instance = self.files[idx]
         spec = file_instance['spectrogram']
+        img_shape = self.spectrogram_shape
         if self.mode == 'train':
             if self.augmentation:
                 spec = self.augment(spec)
@@ -251,14 +254,39 @@ class IemocapDataset(torch.utils.data.Dataset):
             spec = self.unify_size(spec)
         else:
             raise ValueError('Unknown value for mode: should be either "train" or "test"!')
-        img = scale_minmax(spec, 0, 255).astype(np.uint8)  # min-max scale to fit inside 8-bit range
-        img = np.flip(img, axis=0)  # put low frequencies at the bottom in image
-        img_shape = self.spectrogram_shape
-        img = cv2.resize(img, dsize=(img_shape, img_shape), interpolation=cv2.INTER_CUBIC)
-        normalize_image = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.5], std=[0.225])
-        ])
+
+        if self.channels == 'delta':
+            spec = scale_minmax(spec, 0, 255).astype(np.uint8)  # min-max scale to fit inside 8-bit range
+            spec = np.flip(spec, axis=0)  # put low frequencies at the bottom in image
+            delta1 = librosa.feature.delta(spec)
+            delta1 = scale_minmax(delta1, 0, 255).astype(np.uint8)  # min-max scale to fit inside 8-bit range
+            # delta1 = np.flip(delta1, axis=0)  # put low frequencies at the bottom in image
+            delta2 = librosa.feature.delta(spec, order=2)
+            delta2 = scale_minmax(delta2, 0, 255).astype(np.uint8)  # min-max scale to fit inside 8-bit range
+            # delta2 = np.flip(delta2, axis=0)  # put low frequencies at the bottom in image
+            img = cv2.merge((spec, delta1, delta2))
+            img = cv2.resize(img, dsize=(img_shape, img_shape), interpolation=cv2.INTER_CUBIC)
+            normalize_image = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            ])
+        else:
+            img = scale_minmax(spec, 0, 255).astype(np.uint8)  # min-max scale to fit inside 8-bit range
+            img = np.flip(img, axis=0)  # put low frequencies at the bottom in image
+            img = cv2.resize(img, dsize=(img_shape, img_shape), interpolation=cv2.INTER_CUBIC)
+            if self.channels == 'grayscale':
+                normalize_image = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.5], std=[0.225])
+                ])
+            elif self.channels == 'rgb':
+                img = cv2.merge((img, img, img))
+                normalize_image = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+                ])
+            else:
+                raise ValueError('Unknown value for "channels"! (grayscale, rgb, delta)')
         img = normalize_image(img)
         data = img
 
