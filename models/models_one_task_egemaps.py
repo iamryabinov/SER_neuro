@@ -5,9 +5,9 @@ import torch
 import torch.nn as nn
 from torch.hub import load_state_dict_from_url
 
-class AlexNetEgemaps(nn.Module):
+class AlexNetEgemaps2048(nn.Module):
     def __init__(self, num_classes=4):
-        super(AlexNetEgemaps, self).__init__()
+        super(AlexNetEgemaps2048, self).__init__()
         self.features = nn.Sequential(
             nn.Conv2d(1, 64, kernel_size=11, stride=4, padding=2),
             nn.ReLU(inplace=True),
