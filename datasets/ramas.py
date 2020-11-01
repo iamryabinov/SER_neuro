@@ -81,7 +81,7 @@ class RamasDataset(torch.utils.data.Dataset):
 
     def __init__(self, wavs_path, base_name,
                  spectrogram_shape=224,
-                 augmentation=False, padding='zero', mode='train',  tasks='emotion'):
+                 augmentation=False, padding='zero', mode='train',  tasks='emotion', type='descrete'):
         super(RamasDataset, self).__init__()
         self.name = '{}_{}_{}'.format(
             base_name, spectrogram_shape, mode)
@@ -94,9 +94,17 @@ class RamasDataset(torch.utils.data.Dataset):
         self.folder = os.path.join(wavs_path, mode)
         if not os.path.exists(self.folder):
             raise OSError('Path not found!')
+        self.type = type
         self.paths_to_wavs, _ = self.get_paths_to_wavs(self.folder)
-        class_weights = [0.8295337851714931, 0.8979256520846169, 0.7732593961799137, 0.9301704662148285, 0.8782090778393921, 0.8016019716574245, 0.9767919490655166, 0.9125077017868145]
-        self.class_weights = torch.FloatTensor(class_weights).cuda()
+        if self.type == 'descrete':
+            class_weights = [0.8295337851714931, 0.8979256520846169, 0.7732593961799137, 0.9301704662148285,
+                             0.8782090778393921, 0.8016019716574245, 0.9767919490655166, 0.9125077017868145]
+            self.class_weights = torch.FloatTensor(class_weights).cuda()
+        elif self.type == 'binary':
+            class_weights = [0.8618286182861828, 0.13817138171381715]
+            self.class_weights = torch.FloatTensor(class_weights).cuda()
+        else:
+            raise ValueError('Unknown value for type! Should be either "descrete" or "binary"!')
         print('============================ SUCCESS! =========================')
 
     def get_paths_to_wavs(self, path_to_dataset_wavs):
