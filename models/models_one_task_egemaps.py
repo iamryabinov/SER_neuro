@@ -125,8 +125,8 @@ class AlexNetEgemaps1792(nn.Module):
         x2 = self.egemaps_fc(x2)
 
         x = torch.cat((x1, x2), dim=1)
-        x = self.ln1(x)
-        x = self.fc2(x)
+#         x = self.norm(x)
+        x = self.joint_fc(x)
         x = self.classifier(x)
         return x
 
