@@ -128,13 +128,15 @@ class RamasDataset(torch.utils.data.Dataset):
     def get_labels(self, path):
         file_name = os.path.split(path)[1]
         file_name = file_name[:-4]
-        date, _, speaker_id, _, emotion_descrete, _ = file_name.split('_')
+        date, _, speaker_id, _, emotion_descrete, emotion_binary = file_name.split('_')
         speaker = date + speaker_id
         gender = date + speaker_id
-        emotion_descrete = self.emotions_dict[emotion_descrete]
+        descrete_label = self.emotions_dict[emotion_descrete]
+        binary_label = 'Domination + Anger' if (emotion_descrete == 'Angry' and emotion_binary == 'Domination') else 'Other'
+        binary_label = self.emotions_dict[binary_label]
         speaker = self.speakers_dict[speaker]
         gender = self.speakers_dict[gender]
-        return emotion_descrete, speaker, gender
+        return descrete_label, binary_label, speaker, gender
 
     def __len__(self):
         return len(self.paths_to_wavs)
@@ -163,9 +165,9 @@ class RamasDataset(torch.utils.data.Dataset):
         ])
         img = normalize_image(img)
         data = img
-        emotion, speaker, gender = self.get_labels(path_to_item)
+        descrete_label, binary_label, speaker, gender = self.get_labels(path_to_item)
         # labels = emotion, speaker, gender
-        labels = emotion
+        labels = descrete_label if self.type == 'descrete' else binary_label
         return data, labels
 
     def make_spectrogram(self, wav):
