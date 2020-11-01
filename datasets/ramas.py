@@ -37,13 +37,13 @@ def get_paths_to_wavs(path_to_dataset_wavs):
 class RamasDataset(torch.utils.data.Dataset):
 
     emotions_dict = {
-        'Domination': 0,
-        'Submission': 1,
+        'Domination + Anger': 0,
+        'Other': 1,
         'Angry': 0,
         'Disgusted': 1,
         'Happy': 2,
         'Neutral': 3,
-        'Sad emotion': 4,
+        'Sad': 4,
         'Scared': 5,
         'Shame': 6,
         'Surprised': 7,
@@ -95,6 +95,8 @@ class RamasDataset(torch.utils.data.Dataset):
         if not os.path.exists(self.folder):
             raise OSError('Path not found!')
         self.paths_to_wavs, _ = self.get_paths_to_wavs(self.folder)
+        class_weights = [0.8295337851714931, 0.8979256520846169, 0.7732593961799137, 0.9301704662148285, 0.8782090778393921, 0.8016019716574245, 0.9767919490655166, 0.9125077017868145]
+        self.class_weights = torch.FloatTensor(class_weights).cuda()
         print('============================ SUCCESS! =========================')
 
     def get_paths_to_wavs(self, path_to_dataset_wavs):
