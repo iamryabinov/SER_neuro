@@ -131,51 +131,58 @@ def segment_ramas_files(source_path, target_path, len_segment):
         os.system(ffmpeg_string)
 
 if __name__ == '__main__':
-    path_to_raw_audio = '/media/aggr/DATA/RAMAS/RAMAS/Data/Audio/'
-    path_to_csvs = '/media/aggr/DATA/RAMAS/RAMAS/Annotations_by_emotions/'
-
-#     path_to_raw_audio = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Data/Audio/'
-#     path_to_csvs = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Annotations_by_emotions/'
-
-
-    path_for_labeled_audio = path_to_raw_audio + 'cut_and_labeled/'
-
-    path_for_audio_with_domination_submission = path_for_labeled_audio + 'domination_submission/'
-    path_for_segmented_domination_submission = path_for_audio_with_domination_submission + 'segmented/'
-    domination_submission_train = path_for_segmented_domination_submission + 'train/'
-    domination_submission_test = path_for_segmented_domination_submission + 'test/'
-
-    path_for_audio_with_descrete_labels = path_for_labeled_audio + 'descrete_labels/'
-    path_for_segmented_descrete_labels = path_for_audio_with_descrete_labels + 'segmented/'
-    descrete_labels_train = path_for_segmented_descrete_labels + 'train/'
-    descrete_labels_test = path_for_segmented_descrete_labels + 'test/'
-
-    path_for_audio_with_ekman_labels = path_for_labeled_audio + 'ekman_labels/'
-    path_for_segmented_ekman_labels = path_for_audio_with_ekman_labels + 'segmented/'
-    ekman_labels_train = path_for_segmented_domination_submission + 'train/'
-    ekman_labels_test = path_for_segmented_domination_submission + 'test/'
-
-
+    # path_to_raw_audio = '/media/aggr/DATA/RAMAS/RAMAS/Data/Audio/'
+    # path_to_csvs = '/media/aggr/DATA/RAMAS/RAMAS/Annotations_by_emotions/'
+    #
+    # path_to_raw_audio = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Data/Audio/'
+    # path_to_csvs = '/media/aggr/ml-server/ML/datasets/RAMAS/RAMAS/Annotations_by_emotions/'
+    #
+    #
+    # path_for_labeled_audio = path_to_raw_audio + 'cut_and_labeled/'
+    #
+    # path_for_audio_with_domination_submission = path_for_labeled_audio + 'domination_submission/'
+    # path_for_segmented_domination_submission = path_for_audio_with_domination_submission + 'segmented/'
+    # domination_submission_train = path_for_segmented_domination_submission + 'train/'
+    # domination_submission_test = path_for_segmented_domination_submission + 'test/'
+    #
+    # path_for_audio_with_descrete_labels = path_for_labeled_audio + 'descrete_labels/'
+    # path_for_segmented_descrete_labels = path_for_audio_with_descrete_labels + 'segmented/'
+    # descrete_labels_train = path_for_segmented_descrete_labels + 'train/'
+    # descrete_labels_test = path_for_segmented_descrete_labels + 'test/'
+    #
+    # path_for_audio_with_ekman_labels = path_for_labeled_audio + 'ekman_labels/'
+    # path_for_segmented_ekman_labels = path_for_audio_with_ekman_labels + 'segmented/'
+    # ekman_labels_train = path_for_segmented_domination_submission + 'train/'
+    # ekman_labels_test = path_for_segmented_domination_submission + 'test/'
+    #
+    #
     # cut_and_label_ramas_files(source_path=path_to_raw_audio,
     #                           target_path=path_for_labeled_audio,
     #                           path_to_csvs=path_to_csvs)
+    #
+    # copy_needed_files(path_for_labeled_audio, path_for_audio_with_domination_submission)
+    # segment_ramas_files(source_path=path_for_audio_with_domination_submission,
+    #                     target_path=path_for_segmented_domination_submission,
+    #                     len_segment=4.0)
+    # make_train_test_folders(wavs_folder=path_for_segmented_domination_submission,
+    #                         train_folder_path=domination_submission_train,
+    #                         test_folder_path=domination_submission_test,
+    #                         test_size=0.2, random_state=RANDOM_SEED, shuffle=True)
+    #
+    # copy_needed_files(path_for_labeled_audio, path_for_audio_with_descrete_labels,
+    #                   needed_labels=('Angry', 'Disgusted', 'Happy', 'Neutral',
+    #                                  'Sad emotion', 'Scared', 'Shame', 'Surprised', 'Tiredness'))
+    # segment_ramas_files(source_path=path_for_audio_with_descrete_labels,
+    #                     target_path=path_for_segmented_descrete_labels,
+    #                     len_segment=4.0)
+    # make_train_test_folders(wavs_folder=path_for_segmented_descrete_labels,
+    #                         train_folder_path=descrete_labels_train,
+    #                         test_folder_path=descrete_labels_test,
+    #                         test_size=0.2, random_state=RANDOM_SEED, shuffle=True)
 
-    copy_needed_files(path_for_labeled_audio, path_for_audio_with_domination_submission)
-    segment_ramas_files(source_path=path_for_audio_with_domination_submission,
-                        target_path=path_for_segmented_domination_submission,
-                        len_segment=4.0)
-    make_train_test_folders(wavs_folder=path_for_segmented_domination_submission,
-                            train_folder_path=domination_submission_train,
-                            test_folder_path=domination_submission_test,
-                            test_size=0.2, random_state=RANDOM_SEED, shuffle=True)
 
-    copy_needed_files(path_for_labeled_audio, path_for_audio_with_descrete_labels,
-                      needed_labels=('Angry', 'Disgusted', 'Happy', 'Neutral',
-                                     'Sad emotion', 'Scared', 'Shame', 'Surprised', 'Tiredness'))
-    segment_ramas_files(source_path=path_for_audio_with_descrete_labels,
-                        target_path=path_for_segmented_descrete_labels,
-                        len_segment=4.0)
-    make_train_test_folders(wavs_folder=path_for_segmented_descrete_labels,
-                            train_folder_path=descrete_labels_train,
-                            test_folder_path=descrete_labels_test,
+    path_to_wavs = 'E:\\Projects\\SER\\datasets\\RAMAS\\Audio_annotated_cut\\'
+    make_train_test_folders(wavs_folder=path_to_wavs,
+                            train_folder_path=os.path.join(path_to_wavs, 'Descrete', 'train'),
+                            test_folder_path=os.path.join(path_to_wavs, 'Descrete', 'test'),
                             test_size=0.2, random_state=RANDOM_SEED, shuffle=True)

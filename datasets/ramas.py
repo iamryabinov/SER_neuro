@@ -47,7 +47,6 @@ class RamasDataset(torch.utils.data.Dataset):
         'Scared': 5,
         'Shame': 6,
         'Surprised': 7,
-        'Tiredness': 8
     }
 
     speakers_dict = {
@@ -81,8 +80,8 @@ class RamasDataset(torch.utils.data.Dataset):
     }
 
     def __init__(self, wavs_path, base_name,
-                 spectrogram_shape=128,
-                 augmentation=False, padding='zero', mode='train', emotions=('Domination', 'Submission'), tasks='emotion'):
+                 spectrogram_shape=224,
+                 augmentation=False, padding='zero', mode='train',  tasks='emotion'):
         super(RamasDataset, self).__init__()
         self.name = '{}_{}_{}'.format(
             base_name, spectrogram_shape, mode)
@@ -93,7 +92,6 @@ class RamasDataset(torch.utils.data.Dataset):
         self.padding = padding
         self.augmentation = augmentation
         self.folder = os.path.join(wavs_path, mode)
-        self.emotions = emotions
         if not os.path.exists(self.folder):
             raise OSError('Path not found!')
         self.paths_to_wavs, _ = self.get_paths_to_wavs(self.folder)
@@ -105,9 +103,7 @@ class RamasDataset(torch.utils.data.Dataset):
         for root, _dirs, files in os.walk(path_to_dataset_wavs):  # Iterate over files in directory
             for f in files:
                 if f.endswith('.wav'):
-                    for emotion in self.emotions:
-                        if emotion in f:
-                            file_paths_list.append(os.path.join(root, f))
+                    file_paths_list.append(os.path.join(root, f))
         if not file_paths_list:
             raise FileNotFoundError('Returned empty list!')
         return file_paths_list, noise_file_path
@@ -122,13 +118,13 @@ class RamasDataset(torch.utils.data.Dataset):
     def get_labels(self, path):
         file_name = os.path.split(path)[1]
         file_name = file_name[:-4]
-        _, date, _, speaker_id, _, emotion = file_name.split('_')
+        date, _, speaker_id, _, emotion_descrete, _ = file_name.split('_')
         speaker = date + speaker_id
         gender = date + speaker_id
-        emotion = self.emotions_dict[emotion]
+        emotion_descrete = self.emotions_dict[emotion_descrete]
         speaker = self.speakers_dict[speaker]
         gender = self.speakers_dict[gender]
-        return emotion, speaker, gender
+        return emotion_descrete, speaker, gender
 
     def __len__(self):
         return len(self.paths_to_wavs)
