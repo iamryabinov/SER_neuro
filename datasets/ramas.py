@@ -167,7 +167,11 @@ class RamasDataset(torch.utils.data.Dataset):
         data = img
         descrete_label, binary_label, speaker, gender = self.get_labels(path_to_item)
         # labels = emotion, speaker, gender
-        labels = descrete_label if self.type == 'descrete' else binary_label
+        emotion = descrete_label if self.type == 'descrete' else binary_label
+        if self.tasks == 'emotion':
+            labels = emotion
+        elif self.tasks == 'multi':
+            labels = emotion, speaker, gender
         return data, labels
 
     def make_spectrogram(self, wav):
