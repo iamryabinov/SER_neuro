@@ -75,7 +75,7 @@ class VGG(nn.Module):
 
 def make_layers(cfg, batch_norm=False):
     layers = []
-    in_channels = 3
+    in_channels = 1
     for v in cfg:
         if v == 'M':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
@@ -301,7 +301,7 @@ class AlexNet(nn.Module):
     def __init__(self, num_classes=4):
         super(AlexNet, self).__init__()
         self.features = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=11, stride=4, padding=2),
+            nn.Conv2d(1, 64, kernel_size=11, stride=4, padding=2),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2),
             nn.Conv2d(64, 192, kernel_size=5, padding=2),

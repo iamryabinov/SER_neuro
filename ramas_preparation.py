@@ -30,7 +30,8 @@ def get_emotion_label(file_path):
     """
     file_name = os.path.split(file_path)[1]
     file_name = file_name[:-4]
-    emotion_name = file_name.split('_')[-1]  # the last is a position of emotion code
+    _, _, _, _, descrete_emotion, binary_emotion = file_name.split('_')
+    emotion_name = descrete_emotion
     return emotion_name
 
 
