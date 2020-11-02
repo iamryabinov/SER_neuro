@@ -135,7 +135,7 @@ class RamasDataset(torch.utils.data.Dataset):
         binary_label = 'Angry' if emotion_descrete == 'Angry' else 'Other'
         binary_label = self.emotions_dict[binary_label]
         speaker = self.speakers_dict[speaker]
-        gender = self.speakers_dict[gender]
+        gender = self.genders_dict[gender]
         return descrete_label, binary_label, speaker, gender
 
     def __len__(self):

@@ -132,7 +132,7 @@ class TrainingSession():
         correct_speaker = 0
         correct_gender = 0
         total = 0
-        best_acc = 0.0
+        best_loss = 100.0
         if starting_epoch == 1:
             train_acc_emotion_list = []
             train_acc_speaker_list = []
@@ -237,9 +237,9 @@ class TrainingSession():
             print('# Validation accuracies | emotion = {} | speaker = {} | gender = {} |'.format(
                 val_acc_emotion, val_acc_speaker, val_acc_gender
             ))
-            if val_acc_emotion > best_acc:
+            if val_loss_emotion < best_loss:
                 is_best = True
-                best_acc = val_acc_emotion
+                best_loss = val_loss_emotion
             else:
                 is_best = False
 
