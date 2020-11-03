@@ -66,7 +66,7 @@ result;epochs;subset;metric;model;dataset;augmentation
 0.4451820112642695;14;valid;loss;VGGNet;Ramas224Binary;true
 0.44480952864787615;15;valid;loss;VGGNet;Ramas224Binary;true
 0.6525260679057387;16;valid;loss;VGGNet;Ramas224Binary;true
-0.37933167570927107;17;valid;loss;VGGNet;Ramas224Binary;true
+0.37133167570927107;17;valid;loss;VGGNet;Ramas224Binary;true
 0.23654536135315224;1;train;acc;VGGNet;Ramas224Descrete;true
 0.2703741670937981;2;train;acc;VGGNet;Ramas224Descrete;true
 0.29395181957970273;3;train;acc;VGGNet;Ramas224Descrete;true
