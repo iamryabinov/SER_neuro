@@ -41,3 +41,4 @@ WEIGHTS_FOLDER = os.path.join('models', 'training_sessions')
 RESULTS_FOLDER = os.path.join('models', 'best_models')
 
 RAMAS_PATH_TO_WAVS = os.path.join('datasets', 'RAMAS', 'Audio_annotated_cut')
+RAMAS_PATH_TO_WAVS_BINARY = os.path.join('datasets', 'RAMAS', 'AngDom', 'Audio_annotated_cut')
