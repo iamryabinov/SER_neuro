@@ -339,10 +339,10 @@ class TrainingSession():
             correct_speaker += (pred_labels_speaker == target_speaker).sum().item()
             correct_gender += (pred_labels_gender == target_gender).sum().item()
 
-            val_loss_emotion /= dataset_size
-            val_loss_gender /= dataset_size
-            val_loss_speaker /= dataset_size
-            val_loss_total /= dataset_size
+            val_loss_emotion /= total
+            val_loss_gender /= total
+            val_loss_speaker /= total
+            val_loss_total /= total
 
             val_acc_emotion = correct_emotion / total
             val_acc_speaker = correct_speaker / total
